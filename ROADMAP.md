@@ -56,9 +56,21 @@ Framework skeleton compiles clean; correctness of the runtime paths pending Mile
 - [ ] Loose-file tier polish: PNG icons, OGG audio, OBJ meshes (no Unity Editor needed).
 - [ ] `HostBridge` client→host use requests via `CustomMessagingManager` named messages
       (so non-host players can trigger item effects).
-- [ ] **Shop slots**: `ShopLocation` clone API to add a real priced shop slot (v1 already injects
-      into table-driven shop pools via `LootPlacement.InTables`; a true new slot needs a cloned
-      `ShopLocation` NetworkObject with deterministic hash — see ITEM_SYSTEM.md §8).
+- [ ] **Shop slots & vendors** — a slot is NOT a hard-wired list entry. Each `ShopLocation` is an
+      independent placed component = a *position* (`m_itemHolder`) + a price tag (`m_currentPrice`)
+      + one item (fixed `m_networkPrefab` **or** a random draw from `m_lootTable`). So a slot can be
+      positioned anywhere by cloning/placing a `ShopLocation`. Planned:
+    - [ ] **Enumerate every vendor & slot** and capture their ids/references: hub/starting shops
+          (~55 in the lobby) plus the *level* merchants — random-stock vendors that spawn
+          probabilistically per run (entrance-cave / dungeon-event merchants; a mini-location that
+          may or may not appear). Their stock is a random `InventoryLootTable`, so **new items can
+          already be injected** into those pools via `LootPlacement.InTables(...)`.
+    - [ ] **`ShopPlacement` API** — create a priced slot at an arbitrary location: clone a
+          `ShopLocation` NetworkObject with a deterministic `GlobalObjectIdHash`, position its
+          `m_itemHolder`, set fixed item or random `m_lootTable`; it self-populates and syncs price.
+    - [ ] Confirm the "one `ShopLocation` = one slot, no count field" finding in-game (the item is
+          bound to the place + gets a price tag — user's model; matches the static decompilation).
+      (Shop/vendor internals are mapped in the project's item-system research notes, §7–§8.)
 - [ ] **Item capabilities**: helper to attach `ActiveItem_*`/`PassiveItem_*` (eat/melee/throw/
       torch/glow) to a custom item, beyond the generic use-handler (ITEM_SYSTEM.md §3).
 - [ ] Per-item state persistence: slot-keyed companion file (JsonUtility drops unknown fields,

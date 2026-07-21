@@ -5,7 +5,7 @@ Unity Netcode for GameObjects). One package, modular inside: a stable `Core` plu
 modules (`Items`, `Mobs`, `Levels`, `Effects`) each with its own versioned data contract.
 
 Design rationale and the reverse-engineering that backs it: see
-[`../_research/CONTENT_FRAMEWORK_RESEARCH.md`](../_research/CONTENT_FRAMEWORK_RESEARCH.md)
+the content-framework research notes
 (§2.5 lists the statically-confirmed facts this roadmap relies on).
 
 ---
@@ -42,7 +42,7 @@ Framework skeleton compiles clean; correctness of the runtime paths pending Mile
       `Il2CppInventory.InventoryLootTable` List.Add), targetable by category and/or table name
       (biomes, ore veins, shop pools, gambling, reward chests); host-side, zero consumer patching.
 - [x] Full item identity: `ItemType` (slot routing) + `MapIcon` + `FoodValue`/`ShopCost` —
-      driven by the item-system map ([`../_research/ITEM_SYSTEM.md`](../_research/ITEM_SYSTEM.md)).
+      driven by the item-system map (the item-system research notes).
 - [x] `SaveGuard` — Harmony finalizer on `ItemContainer.FromContainerData` (the one save path
       that throws on an unknown hash → turns "lose all reward chests" into "lose one").
 - [x] `Items` module — `ModItemDefinition`, host-authoritative use flow, `ModItemHandle`

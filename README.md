@@ -77,7 +77,7 @@ public override void OnInitializeMelon()
 ### Natural loot placement
 
 Bias is emergent — there is **no rarity field** (see
-[`../_research/ITEM_SYSTEM.md`](../_research/ITEM_SYSTEM.md) §5). Weight = copies appended;
+the item-system research notes §5). Weight = copies appended;
 value fields decide the value-budget match. Two table families are both supported:
 
 ```csharp

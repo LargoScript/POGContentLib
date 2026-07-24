@@ -65,9 +65,14 @@ Framework skeleton compiles clean; correctness of the runtime paths pending Mile
           probabilistically per run (entrance-cave / dungeon-event merchants; a mini-location that
           may or may not appear). Their stock is a random `InventoryLootTable`, so **new items can
           already be injected** into those pools via `LootPlacement.InTables(...)`.
-    - [ ] **`ShopPlacement` API** — create a priced slot at an arbitrary location: clone a
-          `ShopLocation` NetworkObject with a deterministic `GlobalObjectIdHash`, position its
-          `m_itemHolder`, set fixed item or random `m_lootTable`; it self-populates and syncs price.
+    - [~] **`ShopPlacement` API — scaffolded (`Content.Shops.PlaceRandomSlot`), EXPERIMENTAL.**
+          Clones a live `ShopLocation`, builds an `InventoryLootTable` pool from registered mod
+          items, sets `m_lootTable`, assigns a deterministic hash, positions it and host-spawns.
+          Price comes from each pool item's `ShopCost` (auto → `m_currentPrice` → label). Compiles;
+          two runtime unknowns remain (RUNTIME-TODO in `ShopFactory.cs`): registration timing under
+          `ForceSamePrefabs=TRUE`, and whether the cloned scene-`NetworkObject` + `m_priceTagText`
+          replicate/rebind. Validate in a 2-player game. Injecting into EXISTING random pools
+          (Curiosa/gambling) already works today via `LootPlacement.InTables`.
     - [ ] Confirm the "one `ShopLocation` = one slot, no count field" finding in-game (the item is
           bound to the place + gets a price tag — user's model; matches the static decompilation).
       (Shop/vendor internals are mapped in the project's item-system research notes, §7–§8.)

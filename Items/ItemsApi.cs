@@ -39,6 +39,8 @@ namespace POGContentLib.Items
     public static class Content
     {
         public static ItemsApi Items { get; } = new ItemsApi();
+        /// <summary>Shop slots (experimental, v0.2). See ShopsApi.</summary>
+        public static ShopsApi Shops { get; } = new ShopsApi();
         // TODO(v2): public static MobsApi Mobs { get; }
         // TODO(v3): public static LevelsApi Levels { get; }
     }

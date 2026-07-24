@@ -31,9 +31,9 @@ namespace POGContentLib.Core
 
         public static string ShellPrefabName(ItemShellKind kind) => kind switch
         {
-            ItemShellKind.Coin => "Item_Coin",
-            ItemShellKind.Gem => "Item_Gem_Emerald",
-            _ => "Item_Diamond",
+            ItemShellKind.Coin => GameNames.Shells.Coin,
+            ItemShellKind.Gem => GameNames.Shells.GemEmerald,
+            _ => GameNames.Shells.Diamond,
         };
 
         /// <summary>

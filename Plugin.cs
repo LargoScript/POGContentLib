@@ -39,18 +39,22 @@ namespace POGContentLib
                 MelonLogger.Error($"[POGContentLib] ClassInjector failed: {ex.Message}");
             }
 
-            // 2) Shared core services (reachable from the static Harmony patches).
+            // 2) Compatibility probe — verify the game members we bind to exist on this build,
+            //    BEFORE PatchAll (so a game update surfaces as a clear log line, not a silent break).
+            CompatibilityProbe.Check();
+
+            // 3) Shared core services (reachable from the static Harmony patches).
             CoreServices.Init();
 
-            // 3) Built-in domain plugins (each is a separate module).
+            // 4) Built-in domain plugins (each is a separate module).
             PluginRegistry.Add(new ItemsPlugin());
             // TODO(v2): PluginRegistry.Add(new MobsPlugin());
             // TODO(v3): PluginRegistry.Add(new LevelsPlugin());
 
-            // 4) Build the graph and run Boot (register services/handlers).
+            // 5) Build the graph and run Boot (register services/handlers).
             PluginRegistry.Boot();
 
-            // 5) Harmony: NGO lifecycle hooks (Start*/Shutdown) + the reward-chest save guard.
+            // 6) Harmony: NGO lifecycle hooks (Start*/Shutdown) + the reward-chest save guard.
             //    Use the melon's built-in HarmonyInstance.
             try
             {

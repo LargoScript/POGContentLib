@@ -29,18 +29,18 @@ namespace POGContentLib.Core
             }
             if (child == null) return;
 
-            var existing = target.transform.Find("ModItemVisual");
+            var existing = target.transform.Find(GameNames.ModVisualChild);
             if (existing != null) UnityEngine.Object.Destroy(existing.gameObject);
 
             var visualGo = UnityEngine.Object.Instantiate(child.gameObject, target.transform);
-            visualGo.name = "ModItemVisual";
+            visualGo.name = GameNames.ModVisualChild;
             visualGo.SetActive(true);
 
             foreach (var r in target.GetComponentsInChildren<Renderer>(true))
             {
                 if (r == null) continue;
                 if (r.transform.IsChildOf(visualGo.transform)) continue;
-                if (r.gameObject.name == "ModItemVisual") continue;
+                if (r.gameObject.name == GameNames.ModVisualChild) continue;
                 r.enabled = false;
             }
         }
@@ -54,7 +54,7 @@ namespace POGContentLib.Core
                 var r = renderers[i];
                 if (r == null || !r.enabled) continue;
                 string n = r.gameObject.name;
-                if (!n.Contains("ModItemVisual") && !n.Contains(childHint ?? "")
+                if (!n.Contains(GameNames.ModVisualChild) && !n.Contains(childHint ?? "")
                     && !n.Contains("Jewel") && !n.Contains("Coin") && !n.Contains("Diamond"))
                     continue;
 
@@ -63,8 +63,8 @@ namespace POGContentLib.Core
                 {
                     if (mats[m] == null) continue;
                     var copy = new Material(mats[m]);
-                    if (copy.HasProperty("_BaseColor")) copy.SetColor("_BaseColor", tint);
-                    else if (copy.HasProperty("_Color")) copy.SetColor("_Color", tint);
+                    if (copy.HasProperty(GameNames.Shader.BaseColor)) copy.SetColor(GameNames.Shader.BaseColor, tint);
+                    else if (copy.HasProperty(GameNames.Shader.Color)) copy.SetColor(GameNames.Shader.Color, tint);
                     mats[m] = copy;
                 }
                 r.materials = mats;
@@ -80,7 +80,7 @@ namespace POGContentLib.Core
                 var mb = behaviours[i];
                 if (mb == null) continue;
                 string tn = mb.GetIl2CppType().Name;
-                if (tn == "SpeakingStone" || tn.Contains("VoiceProximity"))
+                if (tn == GameNames.VoiceComponents.SpeakingStone || tn.Contains(GameNames.VoiceComponents.VoiceProximity))
                     UnityEngine.Object.Destroy(mb);
             }
         }
@@ -94,11 +94,11 @@ namespace POGContentLib.Core
                 var r = renderers[i];
                 if (r == null) continue;
                 string n = r.gameObject.name;
-                if (n.StartsWith("VFX_SpeakingStone", StringComparison.OrdinalIgnoreCase)
-                    || n.Contains("SpeakingStoneOutline", StringComparison.OrdinalIgnoreCase)
-                    || n.Contains("SpeakingStoneHolder", StringComparison.OrdinalIgnoreCase)
-                    || n.Contains("SpeakingStoneParticles", StringComparison.OrdinalIgnoreCase))
-                    r.gameObject.SetActive(false);
+                for (int k = 0; k < GameNames.SpeakingStoneVfx.Length; k++)
+                {
+                    if (n.IndexOf(GameNames.SpeakingStoneVfx[k], StringComparison.OrdinalIgnoreCase) >= 0)
+                    { r.gameObject.SetActive(false); break; }
+                }
             }
         }
     }

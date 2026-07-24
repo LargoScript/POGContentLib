@@ -1,5 +1,6 @@
 using HarmonyLib;
 using Il2Cpp;
+using POGContentLib.Core;
 using UnityEngine;
 
 namespace POGContentLib.Items
@@ -8,7 +9,7 @@ namespace POGContentLib.Items
     /// Items-domain Harmony patches. Same pattern that proved workable on this engine
     /// (POGCustomItems): postfix on InventoryItem.OnNetworkSpawn/Interact.
     /// </summary>
-    [HarmonyPatch(typeof(InventoryItem), "OnNetworkSpawn")]
+    [HarmonyPatch(typeof(InventoryItem), GameNames.Methods.InventoryItem_OnNetworkSpawn)]
     internal static class Patch_Item_OnNetworkSpawn
     {
         static void Postfix(InventoryItem __instance)
@@ -24,7 +25,7 @@ namespace POGContentLib.Items
         }
     }
 
-    [HarmonyPatch(typeof(InventoryItem), "Interact")]
+    [HarmonyPatch(typeof(InventoryItem), GameNames.Methods.InventoryItem_Interact)]
     internal static class Patch_Item_Interact
     {
         static void Postfix(InventoryItem __instance)

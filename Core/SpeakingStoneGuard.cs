@@ -20,13 +20,13 @@ namespace POGContentLib.Core
         }
     }
 
-    [HarmonyPatch(typeof(SpeakingStone), "Start")]
+    [HarmonyPatch(typeof(SpeakingStone), GameNames.Methods.SpeakingStone_Start)]
     internal static class Patch_SpeakingStone_Start
     {
         static bool Prefix(SpeakingStone __instance) => !SpeakingStoneGuard.IsOnModItem(__instance);
     }
 
-    [HarmonyPatch(typeof(SpeakingStone), "SetEnabled")]
+    [HarmonyPatch(typeof(SpeakingStone), GameNames.Methods.SpeakingStone_SetEnabled)]
     internal static class Patch_SpeakingStone_SetEnabled
     {
         static bool Prefix(SpeakingStone __instance) => !SpeakingStoneGuard.IsOnModItem(__instance);

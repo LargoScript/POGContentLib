@@ -23,7 +23,7 @@ namespace POGContentLib.Core
         public static bool TryGet(string key, out string value) => Terms.TryGetValue(key, out value);
     }
 
-    [HarmonyPatch(typeof(LocalizationManager), "GetTranslation")]
+    [HarmonyPatch(typeof(LocalizationManager), GameNames.Methods.LocalizationManager_GetTranslation)]
     internal static class Patch_GetTranslation
     {
         static void Postfix(string term, ref string __result)

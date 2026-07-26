@@ -55,5 +55,26 @@ namespace POGContentLib.Core
             public const string ItemContainer_FromContainerData = "FromContainerData";
             // NetworkManager Start*/Shutdown are referenced via nameof() (compile-checked) at their call sites.
         }
+
+        /// <summary>
+        /// Steam/Facepunch + game-networking members the multiplayer parity layer binds to REFLECTIVELY
+        /// (ParitySteamBridge) — the Facepunch interop is not referenced at compile time, so these are
+        /// resolved by name at runtime and checked by the probe. The lobby carries our parity manifest
+        /// as a metadata key so a joining client can compare it BEFORE the ForceSamePrefabs check fails.
+        /// </summary>
+        public static class Steam
+        {
+            /// <summary>Facepunch lobby type in interop (exposes SetData/GetData).</summary>
+            public const string LobbyTypeFullName = "Il2CppSteamworks.Data.Lobby";
+            /// <summary>Game networking singleton that owns the current lobby.</summary>
+            public const string NetworkHandlerTypeFullName = "Il2CppGame.Networking.NetworkHandler";
+            public const string NetworkHandler_Singleton = "Singleton"; // static property -> NetworkHandler
+            public const string NetworkHandler_Lobby = "Lobby";         // instance property -> Nullable<Lobby>
+            public const string Lobby_SetData = "SetData";              // (string key, string value)
+            public const string Lobby_GetData = "GetData";              // (string key) -> string
+
+            /// <summary>Our own lobby metadata key holding the serialized parity manifest (not a game string).</summary>
+            public const string ParityMetadataKey = "pog_parity";
+        }
     }
 }

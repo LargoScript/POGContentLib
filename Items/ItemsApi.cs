@@ -1,4 +1,5 @@
 using MelonLoader;
+using POGContentLib.Core;
 
 namespace POGContentLib.Items
 {
@@ -41,6 +42,8 @@ namespace POGContentLib.Items
         public static ItemsApi Items { get; } = new ItemsApi();
         /// <summary>Shop slots (experimental, v0.2). See ShopsApi.</summary>
         public static ShopsApi Shops { get; } = new ShopsApi();
+        /// <summary>Multiplayer content-parity events (ForceSamePrefabs). See ParityApi.</summary>
+        public static ParityApi Parity { get; } = new ParityApi();
         // TODO(v2): public static MobsApi Mobs { get; }
         // TODO(v3): public static LevelsApi Levels { get; }
     }

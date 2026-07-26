@@ -15,6 +15,17 @@ namespace POGContentLib.Core
     }
 
     /// <summary>
+    /// Optional: a content definition can declare a data-contract version. The multiplayer parity
+    /// layer advertises it so peers can detect not just "you lack this item" but "your copy is a
+    /// different version" — relevant because ForceSamePrefabs requires an identical prefab set.
+    /// Definitions that don't implement this are treated as version "1".
+    /// </summary>
+    public interface IContentVersion
+    {
+        string ContentVersion { get; }
+    }
+
+    /// <summary>
     /// Central registry of definitions and built prefabs, shared across all domains.
     /// The identity key is a deterministic GlobalObjectIdHash (MD5(modId:contentId)),
     /// identical on every peer — which is exactly what ForceSamePrefabs=true requires.

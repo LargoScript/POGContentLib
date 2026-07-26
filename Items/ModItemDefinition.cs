@@ -67,11 +67,14 @@ namespace POGContentLib.Items
     }
 
     /// <summary>Mod item data contract (versioned — data outlives code).</summary>
-    public sealed class ModItemDefinition : IContentDefinition
+    public sealed class ModItemDefinition : IContentDefinition, IContentVersion
     {
         // — Identity —
         public string ModId { get; set; }
         public string ContentId { get; set; }
+        /// <summary>Data-contract version advertised in the multiplayer parity manifest (default "1").
+        /// Bump when the item's network-visible shape changes so peers can flag a version mismatch.</summary>
+        public string ContentVersion { get; set; } = "1";
 
         // — Shell / visual —
         /// <summary>Vanilla donor shell (Diamond by default — safe).</summary>

@@ -47,6 +47,17 @@ namespace POGContentLib.Core
             (typeof(NetworkConfig), new[] { "ForceSamePrefabs", "Prefabs" }),
         };
 
+        // Parity-layer members bound REFLECTIVELY (Facepunch interop is not referenced at compile
+        // time), so they are resolved here by full type name rather than typeof(). A miss only
+        // disables lobby-metadata parity detection — the game's own connect check still applies.
+        private static readonly (string typeName, string[] members)[] ExpectedByName =
+        {
+            (GameNames.Steam.NetworkHandlerTypeFullName, new[]
+                { GameNames.Steam.NetworkHandler_Singleton, GameNames.Steam.NetworkHandler_Lobby }),
+            (GameNames.Steam.LobbyTypeFullName, new[]
+                { GameNames.Steam.Lobby_SetData, GameNames.Steam.Lobby_GetData }),
+        };
+
         /// <summary>Check all expected members; log a clear warning listing any that are missing.</summary>
         public static void Check()
         {
@@ -73,6 +84,21 @@ namespace POGContentLib.Core
                 }
             }
 
+            // Reflective (by-name) members — Steam/parity bindings not referenced at compile time.
+            foreach (var (typeName, members) in ExpectedByName)
+            {
+                Type type = FindType(typeName);
+                foreach (var m in members)
+                {
+                    total++;
+                    if (type == null || type.GetMember(m, Flags).Length == 0)
+                    {
+                        miss++;
+                        missing.Append($"\n  - {typeName}.{m}{(type == null ? " (type not found)" : "")}");
+                    }
+                }
+            }
+
             if (miss == 0)
             {
                 MelonLogger.Msg($"[POGContentLib] Compatibility OK ({total} game members resolved).");
@@ -83,6 +109,19 @@ namespace POGContentLib.Core
                     $"[POGContentLib] COMPATIBILITY: {miss}/{total} expected game members NOT FOUND — the game may " +
                     $"have updated. The framework may misbehave; update GameNames/bindings for this version. Missing:{missing}");
             }
+        }
+
+        /// <summary>Find a loaded type by full name across all assemblies (for by-name interop bindings).</summary>
+        private static Type FindType(string fullName)
+        {
+            var direct = Type.GetType(fullName, throwOnError: false);
+            if (direct != null) return direct;
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try { var t = asm.GetType(fullName, throwOnError: false); if (t != null) return t; }
+                catch { /* dynamic/reflection-only assemblies can throw */ }
+            }
+            return null;
         }
     }
 }

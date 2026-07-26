@@ -48,6 +48,23 @@ Framework skeleton compiles clean; correctness of the runtime paths pending Mile
 - [x] `Items` module — `ModItemDefinition`, host-authoritative use flow, `ModItemHandle`
       (hash-resolved state), Interact/OnNetworkSpawn Harmony patches.
 - [ ] **Port POGCustomStones** onto POGContentLib as the reference content pack (validates the API).
+- [~] **Minimal parity layer (multiplayer PRECONDITION, promoted from v0.2) — SCAFFOLDED, compiles.**
+      Because `ForceSamePrefabs=TRUE`, mismatched content packs make co-op joins fail with an opaque
+      "connection failed". The Lib does this self-sufficiently (no other mod required):
+    - [x] `ParityManifest` — deterministic, order-independent snapshot of registered content
+          (`modId:contentId@version` + an 8-hex token); versioned wire format; pure logic, no game dep.
+    - [x] `ParityService` — host advertises the manifest, a joining client reads and compares the
+          host's; a mismatch is logged AND raised via the public `Content.Parity.OnMismatch` event
+          (`ParityReport`: Missing / Extra / VersionMismatch). Fallback is a plain MelonLogger line.
+    - [x] Channel = **Steam lobby metadata** (`NetworkHandler.Singleton.Lobby.SetData/GetData`, key
+          `pog_parity`), read *before* connecting so it touches no NGO state. The NGO
+          ConnectionApproval/`DisconnectReason` path is intentionally NOT used (vanilla already sets
+          `ConnectionApproval=TRUE`; wrapping the game's own approval callback is riskier).
+    - [x] `ParitySteamBridge` binds the Facepunch interop **reflectively** (guarded, degrades to one
+          log line); `CompatibilityProbe` now name-checks those members too.
+    - [ ] **RUNTIME-TODO (Milestone 0):** confirm `NetworkHandler.Singleton.Lobby` is populated and
+          host-written metadata is visible to the joiner at the Start*/join moment we hook.
+      Rich presentation is the optional POGConfig UI in v0.2. Validate in the 2-player test.
 - [ ] Run Milestone 0; fix whatever the two-player test reveals.
 
 ## v0.2 — Items hardened + assets
@@ -80,9 +97,9 @@ Framework skeleton compiles clean; correctness of the runtime paths pending Mile
       torch/glow) to a custom item, beyond the generic use-handler (ITEM_SYSTEM.md §3).
 - [ ] Per-item state persistence: slot-keyed companion file (JsonUtility drops unknown fields,
       so mod state cannot live in the vanilla save).
-- [ ] Parity handshake: advertise `contentId@version` via Steam lobby metadata (Facepunch);
-      surface "missing content pack X" instead of a silent connect rejection
-      (ConnectionApproval is `TRUE` in vanilla — an approval callback already exists).
+- [ ] **Rich parity UI (optional, soft-dep)** — POGConfig (if installed) subscribes to the Lib's
+      `OnParityMismatch` event and renders a native panel (installed packs, add/update/remove,
+      shown *before* joining). Presentation only; detection stays in the Lib. NOT a separate mod.
 - [ ] Retire legacy **POGCustomItems** to `archive/` once Items reaches parity
       (POGSpawner must be re-pointed at POGContentLib first).
 

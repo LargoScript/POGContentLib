@@ -20,6 +20,14 @@ namespace POGContentLib.Items
         private int _usesRemaining;
         private bool _consumed;
 
+        // Effect-visibility sync. Effects live on OUR child objects, which the game's own
+        // hide/show logic knows nothing about — so an item stowed in the backpack kept emitting
+        // its aura. Mirrors the item's visibility each frame; only touches things on change.
+        private InventoryItem _item;
+        private bool _effectsShown = true;
+        private bool _effectsChecked;
+        private bool _hasEffects;
+
         /// <summary>This item's identity hash (== GlobalObjectIdHash).</summary>
         public uint Hash { get; private set; }
 
@@ -38,6 +46,28 @@ namespace POGContentLib.Items
             var def = ItemsPlugin.ResolveDefinition(Hash);
             _usesRemaining = def?.MaxUses ?? 1;
             _consumed = false;
+        }
+
+        void Update()
+        {
+            if (!_effectsChecked)
+            {
+                _effectsChecked = true;
+                _item = GetComponent<InventoryItem>();
+                _hasEffects = ItemVisualEffect.HasEffects(gameObject);
+            }
+            if (!_hasEffects || _item == null) return;
+
+            // Visible in the world = not stowed away. IsVisible covers the game's own hiding
+            // (bucket, containers); IsInInventory covers the backpack, where the object stays
+            // active but must not light up the player's back.
+            bool shouldShow;
+            try { shouldShow = _item.IsVisible && !_item.IsInInventory; }
+            catch { return; }
+
+            if (shouldShow == _effectsShown) return;
+            _effectsShown = shouldShow;
+            ItemVisualEffect.SetEffectsVisible(gameObject, shouldShow);
         }
     }
 }

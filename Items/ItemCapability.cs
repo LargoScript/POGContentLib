@@ -114,6 +114,35 @@ namespace POGContentLib.Items
                 }
             }
         }
+
+        /// <summary>Whether this object carries any effect children (cheap one-off check).</summary>
+        internal static bool HasEffects(GameObject root)
+        {
+            if (root == null) return false;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                if (t != null && t.name.StartsWith(ChildPrefix)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Show/hide every effect child. Used to stop an item's aura from playing while it is stowed
+        /// in the inventory — the game's own hide logic only knows about ITS renderer lists, not ours.
+        /// </summary>
+        internal static void SetEffectsVisible(GameObject root, bool visible)
+        {
+            if (root == null) return;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (t == null || !t.name.StartsWith(ChildPrefix)) continue;
+                t.gameObject.SetActive(visible);
+                if (!visible) continue;
+                foreach (var ps in t.GetComponentsInChildren<ParticleSystem>(true))
+                {
+                    if (ps == null) continue;
+                    try { ps.Play(true); } catch { /* best-effort */ }
+                }
+            }
+        }
     }
 
     /// <summary>Edible: restores health/stamina when eaten (component <c>ActiveItem_Eat</c>).</summary>
@@ -187,21 +216,31 @@ namespace POGContentLib.Items
     /// </summary>
     public sealed class GlowCapability : ItemVisualEffect
     {
-        /// <summary>Light colour.</summary>
+        /// <summary>Glow colour.</summary>
         public Color Colour = Color.white;
-        /// <summary>Light intensity (see the HDRP note above).</summary>
-        public float Intensity = 1f;
-        /// <summary>Light range in metres.</summary>
-        public float Range = 4f;
+        /// <summary>
+        /// Emissive brightness multiplier. HDRP treats emissive colour as HDR, so values above 1 make
+        /// the surface read as lit in a dark room. ~2 is "clearly visible", ~6 is "blinding".
+        /// </summary>
+        public float Intensity = 2f;
+
+        /// <summary>
+        /// Opt-in real point light. OFF by default: a Light illuminates the whole room like a lantern,
+        /// which is almost never what "make my item glow" means — the default is a self-lit surface
+        /// that is visible in the dark without lighting anything else.
+        /// </summary>
+        public bool CastsLight = false;
+        /// <summary>Point-light intensity (only when <see cref="CastsLight"/>).</summary>
+        public float LightIntensity = 1f;
+        /// <summary>Point-light range in metres (only when <see cref="CastsLight"/>).</summary>
+        public float LightRange = 4f;
         /// <summary>Local offset of the light inside the item.</summary>
         public Vector3 LocalOffset = Vector3.zero;
 
-        /// <summary>Also tint the item's materials emissive (the "the mesh itself glows" half).</summary>
-        public bool EmissiveMaterial = false;
         /// <summary>Emissive colour; falls back to <see cref="Colour"/> when unset.</summary>
         public Color? EmissiveColour = null;
 
-        /// <summary>Attach the game's LightFlicker so the light pulses.</summary>
+        /// <summary>Pulse the light via the game's LightFlicker. Requires <see cref="CastsLight"/>.</summary>
         public bool Pulse = false;
         /// <summary>Pulse amplitude (LightFlicker.m_strength).</summary>
         public float PulseStrength = 1f;
@@ -212,11 +251,17 @@ namespace POGContentLib.Items
         /// <summary>Pulse jitter 0..1 (LightFlicker.m_randomness).</summary>
         public float PulseRandomness = 0f;
 
-        public override string Name => "Glow (Light + LightFlicker)";
+        public override string Name => CastsLight ? "Glow (emissive + Light)" : "Glow (emissive)";
 
         public override void Attach(InventoryItem item)
         {
             var go = item.gameObject;
+
+            // The default half: the surface itself glows. HDR emissive means "visible in the dark",
+            // not "light source" — nothing around the item gets brighter.
+            ApplyEmissive(go, (EmissiveColour ?? Colour) * Mathf.Max(0f, Intensity));
+
+            if (!CastsLight) return;
 
             // Reuse our own light child if the item is rebuilt, so we never stack duplicates.
             var existing = go.transform.Find(GameNames.ModObjects.GlowLight);
@@ -232,8 +277,8 @@ namespace POGContentLib.Items
             var light = AddOrGet<Light>(lightGo);
             light.type = LightType.Point;
             light.color = Colour;
-            light.intensity = Intensity;
-            light.range = Range;
+            light.intensity = LightIntensity;
+            light.range = LightRange;
 
             if (Pulse)
             {
@@ -244,9 +289,6 @@ namespace POGContentLib.Items
                 flicker.m_vibrato = PulseVibrato;
                 flicker.m_randomness = PulseRandomness;
             }
-
-            if (EmissiveMaterial)
-                ApplyEmissive(go, EmissiveColour ?? Colour);
         }
 
         /// <summary>Set an emissive colour on the item's visible renderers (material copies, HDRP first).</summary>

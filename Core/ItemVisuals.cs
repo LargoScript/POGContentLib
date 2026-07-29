@@ -28,7 +28,19 @@ namespace POGContentLib.Core
                 if (t == null) continue;
                 if (t.name.Contains(childName) && !t.name.Contains("Outline")) { child = t; break; }
             }
-            if (child == null) return;
+            if (child == null)
+            {
+                // Silence here meant "the item just looks like its shell" with no clue why — that is
+                // how two mod stones shipped as plain diamonds. Name the miss and list the options.
+                var names = new System.Text.StringBuilder();
+                for (int i = 0; i < transforms.Length && i < 40; i++)
+                    if (transforms[i] != null && transforms[i] != visualSource.transform)
+                        names.Append("\n    ").Append(transforms[i].name);
+                MelonLogger.Warning(
+                    $"[POGContentLib] Reskin FAILED: no child matching '{childName}' in " +
+                    $"'{visualSource.name}' — the item will keep its shell mesh. Available children:{names}");
+                return;
+            }
 
             var existing = target.transform.Find(GameNames.ModVisualChild);
             if (existing != null) UnityEngine.Object.Destroy(existing.gameObject);

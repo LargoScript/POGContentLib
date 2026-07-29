@@ -21,17 +21,76 @@ namespace POGContentLib.Items
     /// </summary>
     public abstract class ItemCapability
     {
-        /// <summary>Component type name, for logs.</summary>
+        /// <summary>Capability name, for logs.</summary>
         public abstract string Name { get; }
 
-        /// <summary>Attach and configure the capability on the item. Called host-and-client at build.</summary>
-        internal abstract void Attach(InventoryItem item);
+        /// <summary>
+        /// Attach and configure the capability on the item. Called on host AND client at build time,
+        /// at the same point in the same order, so every peer ends up with an identical object.
+        /// PUBLIC on purpose: this is the extension seam — a third-party mod overrides this to add
+        /// its own capability, and the built-in ones use exactly the same contract (no privileged core).
+        /// </summary>
+        public abstract void Attach(InventoryItem item);
 
         /// <summary>Get the capability component, adding it if absent.</summary>
         protected static T AddOrGet<T>(GameObject go) where T : Component
         {
             var existing = go.GetComponent<T>();
             return existing != null ? existing : go.AddComponent<T>();
+        }
+    }
+
+    /// <summary>
+    /// Base class for a VISUAL effect on an item — glow, sparks, lightning, frost, smoke, anything.
+    /// Subclass it in your own mod to ship an effect the Lib has never heard of:
+    ///
+    /// <code>
+    /// public sealed class LightningEffect : ItemVisualEffect
+    /// {
+    ///     public override string Name => "Lightning";
+    ///     public override void Attach(InventoryItem item)
+    ///     {
+    ///         var host = CreateEffectChild(item, "Lightning");   // child object, cleaned up on rebuild
+    ///         // build the effect: clone a vanilla VFX, instantiate your own bundle prefab,
+    ///         // add a Light, a TrailRenderer, an Animator — whatever Unity can do.
+    ///     }
+    /// }
+    /// </code>
+    ///
+    /// Then just declare it: <c>Capabilities = { new LightningEffect() }</c>. Nothing about visual
+    /// effects is hardcoded — <see cref="GlowCapability"/> and <see cref="ParticleEffect"/> are only
+    /// convenience implementations of this same public contract.
+    /// </summary>
+    public abstract class ItemVisualEffect : ItemCapability
+    {
+        /// <summary>Prefix for effect child objects, so rebuilds replace rather than stack them.</summary>
+        public const string ChildPrefix = "ModEffect_";
+
+        /// <summary>
+        /// Create (or reuse) a child GameObject to host this effect. Reusing by name means rebuilding
+        /// an item never leaves duplicate effects behind.
+        /// </summary>
+        protected static GameObject CreateEffectChild(InventoryItem item, string effectName,
+                                                      Vector3 localOffset = default)
+        {
+            string childName = ChildPrefix + effectName;
+            var existing = item.transform.Find(childName);
+            if (existing != null) return existing.gameObject;
+
+            var go = new GameObject(childName);
+            go.transform.SetParent(item.transform, false);
+            go.transform.localPosition = localOffset;
+            return go;
+        }
+
+        /// <summary>
+        /// The item's visible mesh root — the reskin/bundle visual if there is one, else the item
+        /// itself. Parent effects here when they should follow the model rather than the shell.
+        /// </summary>
+        protected static Transform GetVisualRoot(InventoryItem item)
+        {
+            var visual = item.transform.Find(GameNames.ModVisualChild);
+            return visual != null ? visual : item.transform;
         }
     }
 
@@ -48,7 +107,7 @@ namespace POGContentLib.Items
 
         public override string Name => "ActiveItem_Eat";
 
-        internal override void Attach(InventoryItem item)
+        public override void Attach(InventoryItem item)
         {
             var eat = AddOrGet<ActiveItem_Eat>(item.gameObject);
             eat.m_healthOnEating = HealthOnEating;
@@ -72,7 +131,7 @@ namespace POGContentLib.Items
 
         public override string Name => "ActiveItem_MeleeWeapon";
 
-        internal override void Attach(InventoryItem item)
+        public override void Attach(InventoryItem item)
         {
             var w = AddOrGet<ActiveItem_MeleeWeapon>(item.gameObject);
             w.m_maxDurability = MaxDurability;
@@ -104,7 +163,7 @@ namespace POGContentLib.Items
     /// (HDAdditionalLightData owns lumens/lux), so a light created this way may read dimmer/brighter
     /// than a vanilla one — the probe reports both so the offset can be calibrated.
     /// </summary>
-    public sealed class GlowCapability : ItemCapability
+    public sealed class GlowCapability : ItemVisualEffect
     {
         /// <summary>Light colour.</summary>
         public Color Colour = Color.white;
@@ -133,7 +192,7 @@ namespace POGContentLib.Items
 
         public override string Name => "Glow (Light + LightFlicker)";
 
-        internal override void Attach(InventoryItem item)
+        public override void Attach(InventoryItem item)
         {
             var go = item.gameObject;
 
@@ -194,6 +253,123 @@ namespace POGContentLib.Items
         }
     }
 
+    /// <summary>
+    /// A particle/VFX effect on an item — lightning, frost, smoke, sparks — WITHOUT writing an effect
+    /// class. Two sources, both going through the same public <see cref="ItemVisualEffect"/> contract:
+    ///
+    ///   • <see cref="FromGameObject"/> — clone an existing VFX object from any loaded game prefab.
+    ///     Costs nothing to ship and always matches the game's art style. Discover names with
+    ///     <c>Content.Diagnostics.ListVfx("lightning")</c>.
+    ///   • <see cref="FromBundle"/> — instantiate your own particle prefab from an AssetBundle
+    ///     (particle systems survive IL2CPP; custom scripts do not — see CUSTOM_ASSETS.md).
+    ///
+    /// For anything these two cannot express, subclass <see cref="ItemVisualEffect"/> directly.
+    /// </summary>
+    public sealed class ParticleEffect : ItemVisualEffect
+    {
+        /// <summary>Effect id, also the child object name (so several effects can coexist).</summary>
+        public string EffectId = "Particles";
+
+        // — Source A: clone a VFX object out of a loaded game prefab —
+        public string SourcePrefabName;   // e.g. "Item_SpeakingStone"
+        public string SourceChildName;    // e.g. "VFX_SpeakingStone"
+
+        // — Source B: your own particle prefab from a bundle —
+        public string BundlePath;
+        public string BundleAssetName;
+
+        // — Placement —
+        public Vector3 LocalOffset = Vector3.zero;
+        public Vector3 LocalEuler = Vector3.zero;
+        public float Scale = 1f;
+        /// <summary>Parent to the item's visible model rather than the item root.</summary>
+        public bool FollowVisualMesh = false;
+        /// <summary>Recolour the particle material (null = leave the source colours).</summary>
+        public Color? Tint = null;
+
+        public override string Name => $"Particles({EffectId})";
+
+        /// <summary>Clone a VFX child out of a loaded game prefab (no AssetBundle needed).</summary>
+        public static ParticleEffect FromGameObject(string effectId, string sourcePrefabName, string sourceChildName)
+            => new ParticleEffect { EffectId = effectId, SourcePrefabName = sourcePrefabName, SourceChildName = sourceChildName };
+
+        /// <summary>Instantiate your own particle prefab from an AssetBundle.</summary>
+        public static ParticleEffect FromBundle(string effectId, string bundlePath, string assetName)
+            => new ParticleEffect { EffectId = effectId, BundlePath = bundlePath, BundleAssetName = assetName };
+
+        /// <summary>Position/rotate/scale the effect inside the item (fluent).</summary>
+        public ParticleEffect At(Vector3 offset, Vector3 euler = default, float scale = 1f)
+        {
+            LocalOffset = offset; LocalEuler = euler; Scale = scale;
+            return this;
+        }
+
+        /// <summary>Recolour the particles (fluent).</summary>
+        public ParticleEffect Coloured(Color colour) { Tint = colour; return this; }
+
+        public override void Attach(InventoryItem item)
+        {
+            GameObject source = ResolveSource();
+            if (source == null)
+            {
+                MelonLogger.Warning($"[POGContentLib] ParticleEffect '{EffectId}': no source found " +
+                                    $"(prefab='{SourcePrefabName}' child='{SourceChildName}' bundle='{BundlePath}').");
+                return;
+            }
+
+            var host = CreateEffectChild(item, EffectId, LocalOffset);
+            if (FollowVisualMesh) host.transform.SetParent(GetVisualRoot(item), false);
+
+            // Replace any previous instance so a rebuild never stacks duplicates.
+            for (int i = host.transform.childCount - 1; i >= 0; i--)
+                UnityEngine.Object.Destroy(host.transform.GetChild(i).gameObject);
+
+            var instance = UnityEngine.Object.Instantiate(source, host.transform);
+            instance.name = EffectId;
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localEulerAngles = LocalEuler;
+            instance.transform.localScale = new Vector3(Scale, Scale, Scale);
+            instance.SetActive(true);
+
+            if (Tint.HasValue) TintRenderers(instance, Tint.Value);
+        }
+
+        private GameObject ResolveSource()
+        {
+            if (!string.IsNullOrEmpty(BundlePath) && !string.IsNullOrEmpty(BundleAssetName))
+            {
+                var bundle = CoreServices.Assets.LoadBundle(BundlePath);
+                return bundle != null ? CoreServices.Assets.LoadAsset<GameObject>(bundle, BundleAssetName) : null;
+            }
+            if (string.IsNullOrEmpty(SourcePrefabName) || string.IsNullOrEmpty(SourceChildName)) return null;
+
+            var donor = GameAssets.FindItemPrefab(SourcePrefabName);
+            if (donor == null) return null;
+            foreach (var t in donor.gameObject.GetComponentsInChildren<Transform>(true))
+                if (t != null && t.name.Contains(SourceChildName)) return t.gameObject;
+            return null;
+        }
+
+        private static void TintRenderers(GameObject root, Color colour)
+        {
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r == null) continue;
+                var mats = r.materials;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    if (mats[i] == null) continue;
+                    var copy = new Material(mats[i]);
+                    if (copy.HasProperty(GameNames.Shader.BaseColor)) copy.SetColor(GameNames.Shader.BaseColor, colour);
+                    else if (copy.HasProperty(GameNames.Shader.Color)) copy.SetColor(GameNames.Shader.Color, colour);
+                    if (copy.HasProperty(GameNames.Shader.EmissiveColor)) copy.SetColor(GameNames.Shader.EmissiveColor, colour);
+                    mats[i] = copy;
+                }
+                r.materials = mats;
+            }
+        }
+    }
+
     /// <summary>Throwable: can be thrown for damage, has its own "health" (component <c>ActiveItem_Throwable</c>).</summary>
     public sealed class ThrowableCapability : ItemCapability
     {
@@ -203,7 +379,7 @@ namespace POGContentLib.Items
 
         public override string Name => "ActiveItem_Throwable";
 
-        internal override void Attach(InventoryItem item)
+        public override void Attach(InventoryItem item)
         {
             var t = AddOrGet<ActiveItem_Throwable>(item.gameObject);
             t.m_healthMax = HealthMax;

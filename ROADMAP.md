@@ -111,6 +111,13 @@ Framework skeleton compiles clean; correctness of the runtime paths pending Mile
     - [x] `GlowCapability` — glow/pulse the way vanilla does it (item anatomy §9): a child `Light`
           (colour / intensity / range), optional emissive material tint, optional pulse via the game's
           own `LightFlicker` (strength / duration / vibrato / randomness).
+- [x] **Open visual-effect system (no hardcoded effects)** — `ItemCapability.Attach` is public, so a
+      third-party mod implements effects through the *same* contract the built-ins use (no privileged
+      core). `ItemVisualEffect` base gives `CreateEffectChild` (reused on rebuild, never stacks) and
+      `GetVisualRoot` (follows a custom mesh). `ParticleEffect` covers the no-code cases: clone a
+      vanilla VFX (`FromGameObject`) or instantiate your own particle prefab (`FromBundle`), with
+      placement and recolour. `Content.Diagnostics.ListVfx(filter)` — or a `vfx:<filter>` line in
+      `UserData/pog_probe.txt` — finds vanilla effects to reuse. Guide: `VISUAL_EFFECTS.md`.
     - [ ] Torch/light + weapon NetworkVariable seeding via an `OnNetworkSpawn` step (needs a donor
           prefab for the light/VFX refs) — v2.
 - [x] **`VisualProbe` + `Content.Diagnostics`** — prefab-serialized visual data (light colour/

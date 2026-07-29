@@ -92,6 +92,28 @@ namespace POGContentLib.Items
             var visual = item.transform.Find(GameNames.ModVisualChild);
             return visual != null ? visual : item.transform;
         }
+
+        /// <summary>
+        /// Restart every ModEffect_* child on a LIVE item instance. Needed because effects are built
+        /// on the template, which is kept inactive — ParticleSystem.Play() there is a silent no-op, so
+        /// a freshly spawned clone would sit with its particles stopped. Called from the Lib's
+        /// OnNetworkSpawn patch on every mod item instance (host and clients alike).
+        /// </summary>
+        internal static void RestartEffectsOn(InventoryItem item)
+        {
+            if (item == null) return;
+            foreach (var t in item.GetComponentsInChildren<Transform>(true))
+            {
+                if (t == null || !t.name.StartsWith(ChildPrefix)) continue;
+                t.gameObject.SetActive(true);
+                foreach (var ps in t.GetComponentsInChildren<ParticleSystem>(true))
+                {
+                    if (ps == null) continue;
+                    ps.gameObject.SetActive(true);
+                    try { ps.Play(true); } catch { /* best-effort */ }
+                }
+            }
+        }
     }
 
     /// <summary>Edible: restores health/stamina when eaten (component <c>ActiveItem_Eat</c>).</summary>

@@ -22,6 +22,10 @@ namespace POGContentLib.Items
             // survive Instantiate — the handle lazily resolves itself by hash).
             if (__instance.GetComponent<ModItemHandle>() == null)
                 __instance.gameObject.AddComponent<ModItemHandle>();
+
+            // Kick visual effects awake: they were built on the INACTIVE template, where
+            // ParticleSystem.Play() silently no-ops — each live instance must restart them.
+            ItemVisualEffect.RestartEffectsOn(__instance);
         }
     }
 

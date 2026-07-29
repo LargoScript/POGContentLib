@@ -6,6 +6,7 @@ using Il2CppGame.Gameplay;
 using Il2CppGame.Spawning;
 using Il2CppI2.Loc;
 using Il2CppInventory;
+using Il2CppItems;
 using MelonLoader;
 using Unity.Netcode;
 
@@ -29,9 +30,16 @@ namespace POGContentLib.Core
             {
                 "m_itemID", "m_itemType", "m_mapIconType", "m_goldValue", "m_foodValue", "m_shopCost",
                 "m_doConsume", "m_isConsumed", "m_itemIcon", "m_spawnOnDestroy", "m_spawnAmount", "m_spawnChance",
+                "m_isBigItem", "m_staminaPenaltyOnPickup", "m_movementFactorWhenHeld", // handling / "weight"
                 GameNames.Methods.InventoryItem_Interact, GameNames.Methods.InventoryItem_OnNetworkSpawn,
                 "Entity", "IsInHands", "ConsumeItem_Owner",
             }),
+            // Capability components (EXPERIMENTAL attach API) — scalar fields the Lib sets.
+            (typeof(ActiveItem_Eat), new[]
+                { "m_healthOnEating", "m_damageOnEating", "m_staminaRefill", "m_minStaminaBonus", "m_maxStaminaBonus", "m_stomachFullTime" }),
+            (typeof(ActiveItem_MeleeWeapon), new[]
+                { "m_maxDurability", "m_durabilityLossOnEntityHit", "m_durabilityLossOnDestructibleHit", "m_meleeHitCooldown" }),
+            (typeof(ActiveItem_Throwable), new[] { "m_healthMax", "m_healthMin", "m_bounceFactor" }),
             (typeof(LootTable), new[] { "m_treasureItems", "m_foodItems", "m_usefulItems", "m_bigItems", "m_shopItems" }),
             (typeof(InventoryLootTable), new[] { "Items" }),
             (typeof(ItemContainer), new[] { GameNames.Methods.ItemContainer_FromContainerData }),

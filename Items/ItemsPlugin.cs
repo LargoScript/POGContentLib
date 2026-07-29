@@ -89,6 +89,7 @@ namespace POGContentLib.Items
 
             ApplyIdentity(template, def);
             ApplyVisual(template, def);
+            ApplyCapabilities(template, def);
             template.gameObject.AddComponent<ModItemHandle>();
 
             // Request a natural drop (executed host-side by LootInjector).
@@ -117,6 +118,11 @@ namespace POGContentLib.Items
             item.m_spawnAmount = 0;
             item.m_spawnChance = 0f;
 
+            // Handling / "weight" (ITEM_ANATOMY.md §1.4) — plain fields, statically sound.
+            item.m_isBigItem = def.Big;
+            item.m_staminaPenaltyOnPickup = def.PickupStaminaPenalty;
+            item.m_movementFactorWhenHeld = def.MovementFactorWhenHeld;
+
             // Icon: direct override wins, else resolve a game sprite by name.
             if (def.Icon != null) item.m_itemIcon = def.Icon;
             else if (!string.IsNullOrEmpty(def.IconSpriteName))
@@ -130,6 +136,29 @@ namespace POGContentLib.Items
                 ModLocalization.Register(def.TooltipKey, def.DisplayName);
             if (!string.IsNullOrEmpty(def.TooltipDescriptionKey) && !string.IsNullOrEmpty(def.DisplayDescription))
                 ModLocalization.Register(def.TooltipDescriptionKey, def.DisplayDescription);
+        }
+
+        /// <summary>
+        /// Attach declared capability components (EXPERIMENTAL, v0.2 — see ItemCapability). Each attach
+        /// is guarded so one bad capability can't abort the whole item build. Runs on every peer at the
+        /// same build point, so the resulting component set stays identical (ForceSamePrefabs).
+        /// </summary>
+        private static void ApplyCapabilities(InventoryItem item, ModItemDefinition def)
+        {
+            if (def.Capabilities == null || def.Capabilities.Count == 0) return;
+            foreach (var cap in def.Capabilities)
+            {
+                if (cap == null) continue;
+                try
+                {
+                    cap.Attach(item);
+                    MelonLogger.Msg($"[POGContentLib.Items] Capability '{cap.Name}' attached to {def.ContentId} (EXPERIMENTAL).");
+                }
+                catch (Exception ex)
+                {
+                    MelonLogger.Warning($"[POGContentLib.Items] Capability '{cap.Name}' failed on {def.ContentId}: {ex.Message}");
+                }
+            }
         }
 
         private static void ApplyVisual(InventoryItem item, ModItemDefinition def)

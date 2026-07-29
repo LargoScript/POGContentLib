@@ -93,8 +93,17 @@ Framework skeleton compiles clean; correctness of the runtime paths pending Mile
     - [ ] Confirm the "one `ShopLocation` = one slot, no count field" finding in-game (the item is
           bound to the place + gets a price tag — user's model; matches the static decompilation).
       (Shop/vendor internals are mapped in the project's item-system research notes, §7–§8.)
-- [ ] **Item capabilities**: helper to attach `ActiveItem_*`/`PassiveItem_*` (eat/melee/throw/
-      torch/glow) to a custom item, beyond the generic use-handler (ITEM_SYSTEM.md §3).
+- [~] **Item capabilities — SCAFFOLDED, compiles.** Declarative `ItemCapability` on a definition
+      attaches the sibling `ActiveItem_*` component and sets its scalar fields (item anatomy §2).
+    - [x] `EatCapability` (health/stamina/satiety), `MeleeWeaponCapability` (durability + hit),
+          `ThrowableCapability` (health/bounce); attached in `ItemsPlugin.ApplyCapabilities`, guarded.
+    - [x] Handling / "weight" — `Big` / `PickupStaminaPenalty` / `MovementFactorWhenHeld` (plain
+          `InventoryItem` fields; statically sound, not a component). There is no real weight field.
+    - [ ] **RUNTIME-TODO (Milestone 0):** a bare shell lacks the components' serialized refs (VFX/
+          sounds/curves) and their spawn-time NetworkVariables (durability/ammo/health seed); confirm
+          the scalar effects fire and the added NetworkBehaviours stay in sync across peers.
+    - [ ] Torch/light + weapon NetworkVariable seeding via an `OnNetworkSpawn` step (needs a donor
+          prefab for the light/VFX refs) — v2.
 - [ ] Per-item state persistence: slot-keyed companion file (JsonUtility drops unknown fields,
       so mod state cannot live in the vanilla save).
 - [ ] **Rich parity UI (optional, soft-dep)** — POGConfig (if installed) subscribes to the Lib's

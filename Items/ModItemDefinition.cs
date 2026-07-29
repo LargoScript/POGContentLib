@@ -110,11 +110,25 @@ namespace POGContentLib.Items
         /// <summary>Shop purchase price (decoupled from GoldValue). 0 = not priced.</summary>
         public int ShopCost { get; set; } = 0;
 
+        // — Handling / "weight" (ITEM_ANATOMY.md §1.4 — there is NO weight field; these are the
+        //   real proxies, all plain fields on InventoryItem, so setting them is statically sound). —
+        /// <summary>Big item: takes the hands/large slot instead of a normal inventory slot (m_isBigItem).</summary>
+        public bool Big { get; set; } = false;
+        /// <summary>Stamina drained when this item is picked up — the closest thing to weight (m_staminaPenaltyOnPickup).</summary>
+        public float PickupStaminaPenalty { get; set; } = 0f;
+        /// <summary>Movement multiplier while held (1 = no slow-down; &lt;1 = heavier feel) (m_movementFactorWhenHeld).</summary>
+        public float MovementFactorWhenHeld { get; set; } = 1f;
+
         // — Usage —
         public bool Consumable { get; set; } = true;
         public int MaxUses { get; set; } = 1;
         /// <summary>Id of a registered use handler (RegisterUseHandler).</summary>
         public string UseHandlerId { get; set; }
+
+        // — Capabilities (EXPERIMENTAL, v0.2) — declarative sibling components (eat/weapon/throw).
+        //   See ItemCapability. Attached at template build; validate on-item in Milestone 0. —
+        public System.Collections.Generic.List<ItemCapability> Capabilities { get; } =
+            new System.Collections.Generic.List<ItemCapability>();
 
         // — Natural drops (optional) —
         public LootPlacement Loot { get; set; }

@@ -134,11 +134,27 @@ namespace POGContentLib.Items
                 if (sprite != null) item.m_itemIcon = sprite;
             }
 
-            // Tooltip/name fallback via the localization patch.
-            if (!string.IsNullOrEmpty(def.TooltipKey) && !string.IsNullOrEmpty(def.DisplayName))
-                ModLocalization.Register(def.TooltipKey, def.DisplayName);
-            if (!string.IsNullOrEmpty(def.TooltipDescriptionKey) && !string.IsNullOrEmpty(def.DisplayDescription))
-                ModLocalization.Register(def.TooltipDescriptionKey, def.DisplayDescription);
+            // Tooltip/name. Registering the translation is only half of it — the item must also POINT
+            // at our term, otherwise it keeps the shell's ids and shows "Diamond / Best rock in world".
+            // The ids live on NetworkInteractableBase (InventoryItem's base): m_itemTooltipID and
+            // m_itemTooltipDescriptionID, which UIItemTooltip reads via GetTooltipTitleId/DescriptionId.
+            string nameKey = !string.IsNullOrEmpty(def.TooltipKey)
+                ? def.TooltipKey
+                : $"MOD/{def.ModId}/{def.ContentId}";
+            string descKey = !string.IsNullOrEmpty(def.TooltipDescriptionKey)
+                ? def.TooltipDescriptionKey
+                : $"MOD/{def.ModId}/{def.ContentId}_Desc";
+
+            if (!string.IsNullOrEmpty(def.DisplayName))
+            {
+                ModLocalization.Register(nameKey, def.DisplayName);
+                item.m_itemTooltipID = nameKey;
+            }
+            if (!string.IsNullOrEmpty(def.DisplayDescription))
+            {
+                ModLocalization.Register(descKey, def.DisplayDescription);
+                item.m_itemTooltipDescriptionID = descKey;
+            }
         }
 
         /// <summary>
@@ -177,7 +193,9 @@ namespace POGContentLib.Items
                             var source = GameAssets.FindItemPrefab(def.Visual.SourcePrefabName);
                             if (source != null)
                             {
-                                ItemVisuals.AttachGameMesh(go, source.gameObject, def.Visual.ChildName);
+                                // Swap the mesh on the shell's own renderers so the world view, the
+                                // in-hand view and inventory hiding all keep working (see ReplaceMeshes).
+                                ItemVisuals.ReplaceMeshes(go, source.gameObject, def.Visual.ChildName);
                                 if (def.Visual.StripSpeakingStone)
                                 {
                                     ItemVisuals.StripVoiceComponents(go);

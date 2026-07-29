@@ -291,12 +291,15 @@ namespace POGContentLib.Items
             }
         }
 
-        /// <summary>Set an emissive colour on the item's visible renderers (material copies, HDRP first).</summary>
+        /// <summary>
+        /// Set an emissive colour on the item's mesh renderers (material copies, HDRP first). Covers
+        /// every mesh variant — world and in-hand — so the item glows the same however it is carried.
+        /// </summary>
         private static void ApplyEmissive(GameObject root, Color colour)
         {
-            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+            foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
             {
-                if (r == null || !r.enabled) continue;
+                if (r == null || r.gameObject.name.Contains("Outline")) continue;
                 var mats = r.materials;
                 for (int i = 0; i < mats.Length; i++)
                 {

@@ -13,8 +13,69 @@ namespace POGContentLib.Core
     public static class ItemVisuals
     {
         /// <summary>
-        /// Clone a named mesh child from a source prefab onto the target and disable the
-        /// target's other renderers (so the reskin replaces the shell's look).
+        /// Reskin by REPLACING the mesh on the shell's own renderers, rather than adding a visual of
+        /// our own. This matters more than it sounds: a game item ships two visual variants —
+        /// <c>PickupItem</c> (lying in the world) and <c>HeldItem</c> (in a character's hands, seen in
+        /// third person) — and the game swaps them, hides them in the inventory, and re-enables their
+        /// renderers from its own <c>m_renderers</c> list.
+        ///
+        /// The previous approach parented an extra "ModItemVisual" object to the item root and
+        /// disabled everything else. The game promptly re-enabled its own renderers (so a diamond
+        /// showed in hand) while our extra object, unknown to any of that logic, floated above it and
+        /// stayed visible inside the backpack. Swapping the mesh in place means every one of those
+        /// behaviours keeps working, because the objects doing them are still the game's own.
+        /// </summary>
+        public static void ReplaceMeshes(GameObject target, GameObject visualSource, string childName)
+        {
+            if (target == null || visualSource == null || string.IsNullOrEmpty(childName)) return;
+
+            // Locate the donor mesh (a MeshFilter under the named child).
+            MeshFilter donorFilter = null;
+            MeshRenderer donorRenderer = null;
+            foreach (var mf in visualSource.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (mf == null || mf.sharedMesh == null) continue;
+                if (!mf.gameObject.name.Contains(childName) || mf.gameObject.name.Contains("Outline")) continue;
+                donorFilter = mf;
+                donorRenderer = mf.GetComponent<MeshRenderer>();
+                break;
+            }
+
+            if (donorFilter == null)
+            {
+                var names = new System.Text.StringBuilder();
+                foreach (var mf in visualSource.GetComponentsInChildren<MeshFilter>(true))
+                    if (mf != null) names.Append("\n    ").Append(mf.gameObject.name);
+                MelonLogger.Warning(
+                    $"[POGContentLib] Reskin FAILED: no mesh child matching '{childName}' in " +
+                    $"'{visualSource.name}' — the item keeps its shell mesh. Meshes available:{names}");
+                return;
+            }
+
+            // Swap into EVERY mesh the shell has, so the world view and the in-hand view match.
+            int swapped = 0;
+            foreach (var mf in target.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (mf == null || mf.sharedMesh == null) continue;
+                if (mf.gameObject.name.Contains("Outline")) continue;   // outline meshes track the shape
+
+                mf.sharedMesh = donorFilter.sharedMesh;
+                var r = mf.GetComponent<MeshRenderer>();
+                if (r != null && donorRenderer != null) r.sharedMaterials = donorRenderer.sharedMaterials;
+                swapped++;
+            }
+
+            // The item caches mesh bounds for tooltip placement and the inventory silhouette.
+            try { target.GetComponent<InventoryItem>()?.RefreshMeshInfo(); }
+            catch (Exception ex) { MelonLogger.Warning($"[POGContentLib] RefreshMeshInfo failed: {ex.Message}"); }
+
+            MelonLogger.Msg($"[POGContentLib] Reskin: '{childName}' mesh applied to {swapped} renderer(s) on {target.name}.");
+        }
+
+        /// <summary>
+        /// Legacy path: parent a cloned mesh child under the item. Kept for visuals that genuinely need
+        /// an extra object (a bundle prefab with its own hierarchy); prefer <see cref="ReplaceMeshes"/>
+        /// for a plain reskin, since only that participates in the game's own show/hide logic.
         /// </summary>
         public static void AttachGameMesh(GameObject target, GameObject visualSource, string childName)
         {
@@ -129,18 +190,19 @@ namespace POGContentLib.Core
             return fixedCount;
         }
 
-        /// <summary>Tint the visible reskin renderers via HDRP _BaseColor (fallback _Color).</summary>
+        /// <summary>
+        /// Tint the item's mesh renderers via HDRP _BaseColor (fallback _Color). Applies to every mesh
+        /// variant — the world one and the in-hand one — so the item does not change colour when
+        /// picked up. Outlines and particle renderers are left alone.
+        /// </summary>
         public static void ApplyTint(GameObject root, Color tint, string childHint)
         {
-            var renderers = root.GetComponentsInChildren<Renderer>(true);
+            var renderers = root.GetComponentsInChildren<MeshRenderer>(true);
             for (int i = 0; i < renderers.Length; i++)
             {
                 var r = renderers[i];
-                if (r == null || !r.enabled) continue;
-                string n = r.gameObject.name;
-                if (!n.Contains(GameNames.ModVisualChild) && !n.Contains(childHint ?? "")
-                    && !n.Contains("Jewel") && !n.Contains("Coin") && !n.Contains("Diamond"))
-                    continue;
+                if (r == null) continue;
+                if (r.gameObject.name.Contains("Outline")) continue;
 
                 var mats = r.materials;
                 for (int m = 0; m < mats.Length; m++)

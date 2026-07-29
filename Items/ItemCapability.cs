@@ -145,6 +145,49 @@ namespace POGContentLib.Items
         }
     }
 
+    /// <summary>
+    /// Makes an item USABLE — i.e. something the game is willing to run a primary action on.
+    ///
+    /// The vanilla input action is <c>UseItem</c> (LMB), and it ends at
+    /// <c>ActiveItem_ReadyItem.OnStartPrimaryAction</c>. A bare shell such as Item_Diamond carries no
+    /// <c>ActiveItem_*</c> component at all, so a mod item cloned from it has nothing on the receiving
+    /// end of that chain. This attaches the game's own hold-to-use base, with every serialized field
+    /// it would normally ship with filled in, so the item behaves like a usable one.
+    ///
+    /// Attached automatically for any definition that declares a <c>UseHandlerId</c> — a use handler
+    /// with no way to be triggered is never what the author meant.
+    /// </summary>
+    public sealed class UsableCapability : ItemVisualEffect
+    {
+        /// <summary>Seconds of "readying" before the effect fires. 0 = instant on click.</summary>
+        public float ReadyDuration = 0f;
+        /// <summary>Field-of-view change while readying (0 = none).</summary>
+        public float FovChange = 0f;
+        /// <summary>Show the crosshair while holding the item.</summary>
+        public bool UseCrosshair = false;
+
+        public override string Name => "ActiveItem_ReadyItem (usable)";
+
+        public override void Attach(InventoryItem item)
+        {
+            var ready = AddOrGet<ActiveItem_ReadyItem>(item.gameObject);
+
+            // Fill in what the component would normally get from its prefab. Leaving these null is how
+            // an added NetworkBehaviour ends up throwing every frame in Update.
+            ready.m_inventoryItem = item;
+            ready.m_readyItemDuration = ReadyDuration;
+            ready.m_readyItemCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+            ready.m_effectTime = 0f;
+            ready.m_fovChange = FovChange;
+            ready.m_fovChangeReadyFactor = 1f;
+            ready.m_useCrosshair = UseCrosshair;
+            ready.m_useCrosshairReadyOnly = false;
+            ready.m_preventUseIfExhausted = false;
+            if (ready.m_endPositionTransform == null)
+                ready.m_endPositionTransform = item.transform;
+        }
+    }
+
     /// <summary>Edible: restores health/stamina when eaten (component <c>ActiveItem_Eat</c>).</summary>
     public sealed class EatCapability : ItemCapability
     {

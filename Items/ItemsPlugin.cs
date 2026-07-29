@@ -164,6 +164,22 @@ namespace POGContentLib.Items
         /// </summary>
         private static void ApplyCapabilities(InventoryItem item, ModItemDefinition def)
         {
+            // A use handler needs something able to receive the game's primary action. The vanilla
+            // UseItem input ends at ActiveItem_ReadyItem, and bare shells carry no ActiveItem_* at
+            // all — so give the item the game's own usable base unless the pack added one itself.
+            if (!string.IsNullOrEmpty(def.UseHandlerId) && !HasUsableComponent(def))
+            {
+                try
+                {
+                    new UsableCapability().Attach(item);
+                    MelonLogger.Msg($"[POGContentLib.Items] {def.ContentId}: made usable (ActiveItem_ReadyItem added).");
+                }
+                catch (Exception ex)
+                {
+                    MelonLogger.Warning($"[POGContentLib.Items] {def.ContentId}: could not make usable: {ex.Message}");
+                }
+            }
+
             if (def.Capabilities == null || def.Capabilities.Count == 0) return;
             foreach (var cap in def.Capabilities)
             {
@@ -178,6 +194,16 @@ namespace POGContentLib.Items
                     MelonLogger.Warning($"[POGContentLib.Items] Capability '{cap.Name}' failed on {def.ContentId}: {ex.Message}");
                 }
             }
+        }
+
+        /// <summary>Whether the pack already declared a capability that makes the item usable.</summary>
+        private static bool HasUsableComponent(ModItemDefinition def)
+        {
+            if (def.Capabilities == null) return false;
+            foreach (var cap in def.Capabilities)
+                if (cap is UsableCapability || cap is EatCapability
+                    || cap is MeleeWeaponCapability || cap is ThrowableCapability) return true;
+            return false;
         }
 
         private static void ApplyVisual(InventoryItem item, ModItemDefinition def)

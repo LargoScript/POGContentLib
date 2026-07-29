@@ -102,8 +102,16 @@ Framework skeleton compiles clean; correctness of the runtime paths pending Mile
     - [ ] **RUNTIME-TODO (Milestone 0):** a bare shell lacks the components' serialized refs (VFX/
           sounds/curves) and their spawn-time NetworkVariables (durability/ammo/health seed); confirm
           the scalar effects fire and the added NetworkBehaviours stay in sync across peers.
+    - [x] `GlowCapability` — glow/pulse the way vanilla does it (item anatomy §9): a child `Light`
+          (colour / intensity / range), optional emissive material tint, optional pulse via the game's
+          own `LightFlicker` (strength / duration / vibrato / randomness).
     - [ ] Torch/light + weapon NetworkVariable seeding via an `OnNetworkSpawn` step (needs a donor
           prefab for the light/VFX refs) — v2.
+- [x] **`VisualProbe` + `Content.Diagnostics`** — prefab-serialized visual data (light colour/
+      intensity/range, flicker settings, emissive materials) is invisible to static analysis, so this
+      logs it from a live instance. Drive it from code (`Content.Diagnostics.ProbeItem("Item_Speaking
+      Stone")`) or with no code at all via `UserData/pog_probe.txt` (one prefab name per line). Use it
+      to capture real numbers to feed into `GlowCapability`. Read-only; also reports HDRP intensity.
 - [ ] Per-item state persistence: slot-keyed companion file (JsonUtility drops unknown fields,
       so mod state cannot live in the vanilla save).
 - [ ] **Rich parity UI (optional, soft-dep)** — POGConfig (if installed) subscribes to the Lib's

@@ -111,6 +111,35 @@ parity data and flag its content as extra. Confirm this does not crash the clien
 
 ---
 
+## T3e — Capture real glow/pulse values (VisualProbe)
+
+Prefab-serialized visuals (light colour, intensity, range, flicker settings, emissive materials)
+cannot be read by any static tool — this captures them from a live instance so they can be fed into a
+`GlowCapability`. **No code needed.**
+
+1. Create `UserData/pog_probe.txt` next to the game with one prefab name per line:
+   ```
+   Item_SpeakingStone
+   Item_GlowingOrb
+   Item_Torch
+   ```
+2. Launch the game and load into the lobby (prefabs load progressively; the probe retries on every
+   scene load until each one resolves).
+3. In `Latest.log` find the block:
+   `[POGContentLib.Probe] VISUAL REPORT for 'Item_SpeakingStone'`
+
+It lists child objects, every `Light` (type / colour RGBA / intensity / range / shadows, plus the
+HDRP intensity and unit where present), every `LightFlicker` (strength / duration / vibrato /
+randomness), particle systems, and emissive materials.
+
+**PASS:** a report appears for each requested prefab. **FAIL:** `Prefab not loaded (yet)` on every
+scene means the name is wrong or that item never loads in that scene — try the exact GameObject name.
+
+**Send me the report block** — those are the numbers that turn `GlowCapability` defaults into an
+accurate copy of the stone's look (and tell us the HDRP intensity offset, if any).
+
+---
+
 ## T4 — AssetBundle round-trip (gates the visual pipeline, v0.2)
 
 Only when a bundle is available: build an `HDRP/Lit` cube in Unity **2022.3.62f2**, load via

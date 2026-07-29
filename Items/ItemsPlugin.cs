@@ -73,6 +73,9 @@ namespace POGContentLib.Items
             {
                 foreach (var def in _defs) TryBuild(def);
 
+                // Retry any queued visual probes (prefabs load progressively across scenes).
+                Content.Diagnostics.RetryPending();
+
                 var nm = NetworkManager.Singleton;
                 if (nm != null && nm.IsServer)
                     CoreServices.Loot.InjectIntoLoadedTables();

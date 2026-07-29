@@ -44,6 +44,8 @@ namespace POGContentLib.Items
         public static ShopsApi Shops { get; } = new ShopsApi();
         /// <summary>Multiplayer content-parity events (ForceSamePrefabs). See ParityApi.</summary>
         public static ParityApi Parity { get; } = new ParityApi();
+        /// <summary>Runtime inspection of vanilla visuals (lights/pulse/emissive). See DiagnosticsApi.</summary>
+        public static DiagnosticsApi Diagnostics { get; } = new DiagnosticsApi();
         // TODO(v2): public static MobsApi Mobs { get; }
         // TODO(v3): public static LevelsApi Levels { get; }
     }

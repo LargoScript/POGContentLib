@@ -22,6 +22,19 @@ namespace POGContentLib.Core
         {
             public const string BaseColor = "_BaseColor"; // HDRP/Lit primary
             public const string Color = "_Color";         // legacy fallback
+            /// <summary>HDRP/Lit emissive colour — the material half of a "glow" (VisualProbe, GlowCapability).</summary>
+            public const string EmissiveColor = "_EmissiveColor";
+            /// <summary>Legacy/built-in emission colour, used as a fallback.</summary>
+            public const string EmissionColor = "_EmissionColor";
+            /// <summary>Shader keyword that must be enabled for emission to render.</summary>
+            public const string EmissionKeyword = "_EMISSION";
+        }
+
+        /// <summary>Child object names created by the framework itself (stable, not game assets).</summary>
+        public static class ModObjects
+        {
+            /// <summary>Child GameObject holding the Light created by GlowCapability.</summary>
+            public const string GlowLight = "ModGlowLight";
         }
 
         /// <summary>Component type names stripped when a SpeakingStone mesh is used as a reskin donor.</summary>

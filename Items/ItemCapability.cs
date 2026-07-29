@@ -1,6 +1,7 @@
 using Il2Cpp;
 using Il2CppItems;
 using MelonLoader;
+using POGContentLib.Core;
 using UnityEngine;
 
 namespace POGContentLib.Items
@@ -81,6 +82,115 @@ namespace POGContentLib.Items
             // m_currentDurability is a NetworkVariable<int> that initializes at spawn; seeding it to
             // MaxDurability belongs in an OnNetworkSpawn step, not here (RUNTIME-TODO). Hit VFX/sounds
             // are also unset on a bare shell.
+        }
+    }
+
+    /// <summary>
+    /// Glow / pulse (EXPERIMENTAL, v0.2). A glowing, pulsing item — the look the SpeakingStone has —
+    /// is NOT a field on InventoryItem: it is a child <c>Light</c> plus emissive materials, animated
+    /// by a pulse driver (item anatomy §9). This capability rebuilds that setup declaratively:
+    ///
+    ///   • a child GameObject with a <c>Light</c> (Colour / Intensity / Range) — the light half;
+    ///   • an optional emissive tint on the item's renderers — the material half;
+    ///   • an optional pulse via the game's own <c>LightFlicker</c> (DOTween: Strength / Duration /
+    ///     Vibrato / Randomness), the same component the game uses for flickering lights.
+    ///
+    /// The DEFAULTS here are deliberately neutral, NOT copied from any vanilla item: the real numbers
+    /// live in prefab serialized data and can only be read at runtime. Use <c>VisualProbe</c>
+    /// (Content.Diagnostics.ProbeItem("Item_SpeakingStone")) to capture the actual values in-game and
+    /// then set them explicitly here.
+    ///
+    /// RUNTIME-TODO (Milestone 0): under HDRP, <c>Light.intensity</c> is not the photometric intensity
+    /// (HDAdditionalLightData owns lumens/lux), so a light created this way may read dimmer/brighter
+    /// than a vanilla one — the probe reports both so the offset can be calibrated.
+    /// </summary>
+    public sealed class GlowCapability : ItemCapability
+    {
+        /// <summary>Light colour.</summary>
+        public Color Colour = Color.white;
+        /// <summary>Light intensity (see the HDRP note above).</summary>
+        public float Intensity = 1f;
+        /// <summary>Light range in metres.</summary>
+        public float Range = 4f;
+        /// <summary>Local offset of the light inside the item.</summary>
+        public Vector3 LocalOffset = Vector3.zero;
+
+        /// <summary>Also tint the item's materials emissive (the "the mesh itself glows" half).</summary>
+        public bool EmissiveMaterial = false;
+        /// <summary>Emissive colour; falls back to <see cref="Colour"/> when unset.</summary>
+        public Color? EmissiveColour = null;
+
+        /// <summary>Attach the game's LightFlicker so the light pulses.</summary>
+        public bool Pulse = false;
+        /// <summary>Pulse amplitude (LightFlicker.m_strength).</summary>
+        public float PulseStrength = 1f;
+        /// <summary>Pulse period in seconds (LightFlicker.m_duration).</summary>
+        public float PulseDuration = 1f;
+        /// <summary>Oscillations per pulse (LightFlicker.m_vibrato).</summary>
+        public int PulseVibrato = 10;
+        /// <summary>Pulse jitter 0..1 (LightFlicker.m_randomness).</summary>
+        public float PulseRandomness = 0f;
+
+        public override string Name => "Glow (Light + LightFlicker)";
+
+        internal override void Attach(InventoryItem item)
+        {
+            var go = item.gameObject;
+
+            // Reuse our own light child if the item is rebuilt, so we never stack duplicates.
+            var existing = go.transform.Find(GameNames.ModObjects.GlowLight);
+            GameObject lightGo = existing != null
+                ? existing.gameObject
+                : new GameObject(GameNames.ModObjects.GlowLight);
+            if (existing == null)
+            {
+                lightGo.transform.SetParent(go.transform, false);
+                lightGo.transform.localPosition = LocalOffset;
+            }
+
+            var light = AddOrGet<Light>(lightGo);
+            light.type = LightType.Point;
+            light.color = Colour;
+            light.intensity = Intensity;
+            light.range = Range;
+
+            if (Pulse)
+            {
+                var flicker = AddOrGet<LightFlicker>(lightGo);
+                flicker.m_light = light;
+                flicker.m_strength = PulseStrength;
+                flicker.m_duration = PulseDuration;
+                flicker.m_vibrato = PulseVibrato;
+                flicker.m_randomness = PulseRandomness;
+            }
+
+            if (EmissiveMaterial)
+                ApplyEmissive(go, EmissiveColour ?? Colour);
+        }
+
+        /// <summary>Set an emissive colour on the item's visible renderers (material copies, HDRP first).</summary>
+        private static void ApplyEmissive(GameObject root, Color colour)
+        {
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r == null || !r.enabled) continue;
+                var mats = r.materials;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    if (mats[i] == null) continue;
+                    var copy = new Material(mats[i]);
+                    if (copy.HasProperty(GameNames.Shader.EmissiveColor))
+                        copy.SetColor(GameNames.Shader.EmissiveColor, colour);
+                    else if (copy.HasProperty(GameNames.Shader.EmissionColor))
+                    {
+                        copy.SetColor(GameNames.Shader.EmissionColor, colour);
+                        copy.EnableKeyword(GameNames.Shader.EmissionKeyword);
+                    }
+                    else continue;
+                    mats[i] = copy;
+                }
+                r.materials = mats;
+            }
         }
     }
 

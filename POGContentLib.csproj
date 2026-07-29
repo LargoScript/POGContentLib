@@ -45,6 +45,11 @@
       <HintPath>..\..\MelonLoader\Il2CppAssemblies\UnityEngine.AudioModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- ParticleSystem: read by VisualProbe when reporting an item's glow/pulse setup. -->
+    <Reference Include="UnityEngine.ParticleSystemModule">
+      <HintPath>..\..\MelonLoader\Il2CppAssemblies\UnityEngine.ParticleSystemModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>..\..\MelonLoader\Il2CppAssemblies\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>

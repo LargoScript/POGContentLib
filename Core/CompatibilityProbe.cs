@@ -32,6 +32,8 @@ namespace POGContentLib.Core
                 "m_doConsume", "m_isConsumed", "m_itemIcon", "m_spawnOnDestroy", "m_spawnAmount", "m_spawnChance",
                 "m_isBigItem", "m_staminaPenaltyOnPickup", "m_movementFactorWhenHeld", // handling / "weight"
                 GameNames.Methods.InventoryItem_Interact, GameNames.Methods.InventoryItem_OnNetworkSpawn,
+                GameNames.Methods.InventoryItem_StartPrimaryAction,
+                "m_itemTooltipID", "m_itemTooltipDescriptionID", "RefreshMeshInfo",
                 "Entity", "IsInHands", "ConsumeItem_Owner",
             }),
             // Capability components (EXPERIMENTAL attach API) — scalar fields the Lib sets.

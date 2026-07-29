@@ -270,11 +270,26 @@ namespace POGContentLib.Items
             var def = ResolveDefinition(netObj.GlobalObjectIdHash);
             if (def == null) return;
 
+            // From here on the item IS ours, so every early exit is a reason the player's click did
+            // nothing — say which one. A silent no-op here once hid a broken use flow completely.
             var handle = item.GetComponent<ModItemHandle>();
-            if (handle != null && handle.IsConsumed) return;
-
-            if (string.IsNullOrEmpty(def.UseHandlerId) || !_handlers.TryGetValue(def.UseHandlerId, out var handler))
+            if (handle != null && handle.IsConsumed)
+            {
+                MelonLogger.Msg($"[POGContentLib.Items] {def.ContentId}: already consumed.");
                 return;
+            }
+
+            if (string.IsNullOrEmpty(def.UseHandlerId))
+            {
+                MelonLogger.Msg($"[POGContentLib.Items] {def.ContentId}: no UseHandlerId set — nothing to run.");
+                return;
+            }
+            if (!_handlers.TryGetValue(def.UseHandlerId, out var handler))
+            {
+                MelonLogger.Warning($"[POGContentLib.Items] {def.ContentId}: use handler " +
+                                    $"'{def.UseHandlerId}' is not registered.");
+                return;
+            }
 
             var nm = NetworkManager.Singleton;
             bool isHost = nm != null && nm.IsServer;
@@ -287,7 +302,12 @@ namespace POGContentLib.Items
             }
 
             var ctx = new UseContext { IsHost = true, Bridge = CoreServices.Bridge };
-            if (!handler(item, owner, ctx)) return;
+            if (!handler(item, owner, ctx))
+            {
+                // The handler declined (e.g. "the bucket is moving") — the use is NOT spent.
+                MelonLogger.Msg($"[POGContentLib.Items] {def.ContentId}: handler declined; use not spent.");
+                return;
+            }
 
             if (handle != null)
             {

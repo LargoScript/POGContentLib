@@ -68,7 +68,14 @@ namespace POGContentLib.Core
             public const string SpeakingStone_Start = "Start";
             public const string SpeakingStone_SetEnabled = "SetEnabled";
             public const string InventoryItem_OnNetworkSpawn = "OnNetworkSpawn";
+            /// <summary>Picking the item UP — NOT "using" it (a costly thing to confuse: see below).</summary>
             public const string InventoryItem_Interact = "Interact";
+            /// <summary>
+            /// The real "use the item I am holding" entry point (primary action / left click). Patching
+            /// Interact instead meant the use flow never ran: at pickup time IsInHands is still false,
+            /// and actually using a held item never calls Interact at all.
+            /// </summary>
+            public const string InventoryItem_StartPrimaryAction = "StartPrimaryAction";
             public const string ItemContainer_FromContainerData = "FromContainerData";
             // NetworkManager Start*/Shutdown are referenced via nameof() (compile-checked) at their call sites.
         }

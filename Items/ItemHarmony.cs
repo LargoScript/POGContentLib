@@ -29,12 +29,17 @@ namespace POGContentLib.Items
         }
     }
 
-    [HarmonyPatch(typeof(InventoryItem), GameNames.Methods.InventoryItem_Interact)]
-    internal static class Patch_Item_Interact
+    /// <summary>
+    /// The item's primary action — "use what I am holding" (left click). This is the correct hook:
+    /// Interact is the PICKUP interaction, so patching that never fired the use flow (IsInHands is
+    /// false while picking up, and using a held item does not call Interact at all).
+    /// </summary>
+    [HarmonyPatch(typeof(InventoryItem), GameNames.Methods.InventoryItem_StartPrimaryAction)]
+    internal static class Patch_Item_StartPrimaryAction
     {
         static void Postfix(InventoryItem __instance)
         {
-            if (__instance == null || !__instance.IsInHands) return;
+            if (__instance == null) return;
             var plugin = ItemsPlugin.Instance;
             if (plugin == null || !plugin.IsModItem(__instance)) return;
 

@@ -23,13 +23,36 @@ namespace POGContentLib.Items
         public string ChildName;            // mesh child name to clone (for GameMesh)
         public bool StripSpeakingStone = true; // when donor is SpeakingStone, strip voice/VFX
 
+        // — Placement of the custom visual inside the item (BundlePrefab) —
+        public Vector3 LocalOffset = Vector3.zero;
+        public Vector3 LocalEuler = Vector3.zero;
+        public Vector3 LocalScale = Vector3.one;
+        /// <summary>Re-point materials that lost their shader in the bundle onto the game's HDRP/Lit.</summary>
+        public bool RepairShaders = true;
+
         /// <summary>Reskin by cloning a mesh child from an existing game prefab (no AssetBundle).</summary>
         public static ItemVisual GameMesh(string sourcePrefabName, string childName)
             => new ItemVisual { Kind = ItemVisualKind.GameMesh, SourcePrefabName = sourcePrefabName, ChildName = childName };
 
         public static ItemVisual Png(string path) => new ItemVisual { Kind = ItemVisualKind.Png, Path = path };
+
+        /// <summary>
+        /// Custom mesh/prefab from an AssetBundle — your own model WITH its own visual effects
+        /// (particles, lights, trails, animation all ride along inside the prefab). Custom C#
+        /// MonoBehaviour scripts do NOT survive under IL2CPP; use capabilities/use handlers for logic.
+        /// Build the bundle with the game's Unity version (2022.3.62f2, HDRP 14).
+        /// </summary>
         public static ItemVisual Bundle(string bundlePath, string assetName)
             => new ItemVisual { Kind = ItemVisualKind.BundlePrefab, Path = bundlePath, AssetName = assetName };
+
+        /// <summary>Position/rotate/scale the custom visual inside the item (fluent).</summary>
+        public ItemVisual At(Vector3 offset, Vector3 euler = default, float scale = 1f)
+        {
+            LocalOffset = offset;
+            LocalEuler = euler;
+            LocalScale = new Vector3(scale, scale, scale);
+            return this;
+        }
     }
 
     /// <summary>

@@ -193,8 +193,7 @@ namespace POGContentLib.Items
                             break;
 
                         case ItemVisualKind.BundlePrefab:
-                            // TODO(Milestone 0.2): apply mesh/prefab from the bundle (needs smoke test).
-                            MelonLogger.Msg($"[POGContentLib.Items] Bundle visual pending runtime smoke test: {def.ContentId}");
+                            ApplyBundleVisual(item, def);
                             break;
                     }
                 }
@@ -206,6 +205,39 @@ namespace POGContentLib.Items
             {
                 MelonLogger.Warning($"[POGContentLib.Items] Visual failed for {def.ContentId}: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Load a custom mesh/prefab from an AssetBundle and use it as the item's visual. The prefab
+        /// brings its own engine-side effects (particles, lights, trails, animation); custom C#
+        /// scripts cannot survive IL2CPP and are dropped by Unity on load. Bundles must be built with
+        /// the game's Unity/HDRP version — mismatched shaders are repaired onto HDRP/Lit.
+        /// RUNTIME-TODO (Milestone 0.2): the bundle round-trip is not proven in-game yet.
+        /// </summary>
+        private static void ApplyBundleVisual(InventoryItem item, ModItemDefinition def)
+        {
+            var v = def.Visual;
+            if (string.IsNullOrEmpty(v.Path) || string.IsNullOrEmpty(v.AssetName))
+            {
+                MelonLogger.Warning($"[POGContentLib.Items] Bundle visual for {def.ContentId} needs both a bundle path and an asset name.");
+                return;
+            }
+
+            var bundle = CoreServices.Assets.LoadBundle(v.Path);
+            if (bundle == null) return;
+
+            var prefab = CoreServices.Assets.LoadAsset<GameObject>(bundle, v.AssetName);
+            if (prefab == null)
+            {
+                MelonLogger.Error($"[POGContentLib.Items] Asset '{v.AssetName}' not found in bundle '{v.Path}'.");
+                return;
+            }
+
+            var visual = ItemVisuals.AttachBundlePrefab(item.gameObject, prefab, v.LocalOffset, v.LocalEuler, v.LocalScale);
+            if (visual == null) return;
+
+            if (v.RepairShaders) ItemVisuals.RepairBundleShaders(visual);
+            MelonLogger.Msg($"[POGContentLib.Items] Custom mesh '{v.AssetName}' applied to {def.ContentId} (EXPERIMENTAL).");
         }
 
         // ---- Use flow (host-authoritative) ----

@@ -1,5 +1,6 @@
 using System;
 using Il2Cpp;
+using MelonLoader;
 using UnityEngine;
 
 namespace POGContentLib.Core
@@ -43,6 +44,77 @@ namespace POGContentLib.Core
                 if (r.gameObject.name == GameNames.ModVisualChild) continue;
                 r.enabled = false;
             }
+        }
+
+        /// <summary>
+        /// Instantiate a custom prefab/mesh loaded from an AssetBundle as the item's visual, replacing
+        /// the shell's own renderers. The prefab keeps everything Unity itself can serialize —
+        /// MeshRenderer, ParticleSystem, Light, TrailRenderer, Animator — so custom visual EFFECTS
+        /// come along with the mesh. What it CANNOT carry is custom C# MonoBehaviour scripts: under
+        /// IL2CPP those types do not exist in the runtime, so Unity drops them on load (use the Lib's
+        /// capabilities / use handlers for behaviour instead).
+        /// </summary>
+        public static GameObject AttachBundlePrefab(GameObject target, GameObject sourcePrefab,
+                                                    Vector3 localOffset, Vector3 localEuler, Vector3 localScale)
+        {
+            if (target == null || sourcePrefab == null) return null;
+
+            var existing = target.transform.Find(GameNames.ModVisualChild);
+            if (existing != null) UnityEngine.Object.Destroy(existing.gameObject);
+
+            var visualGo = UnityEngine.Object.Instantiate(sourcePrefab, target.transform);
+            visualGo.name = GameNames.ModVisualChild;
+            visualGo.transform.localPosition = localOffset;
+            visualGo.transform.localEulerAngles = localEuler;
+            visualGo.transform.localScale = localScale;
+            visualGo.SetActive(true);
+
+            // Hide the shell's own look so only the custom mesh shows.
+            foreach (var r in target.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r == null) continue;
+                if (r.transform.IsChildOf(visualGo.transform)) continue;
+                r.enabled = false;
+            }
+            return visualGo;
+        }
+
+        /// <summary>
+        /// Repair materials whose shader did not survive the bundle (Unity substitutes the magenta
+        /// error shader). Re-pointing them at the game's own HDRP/Lit keeps every property whose name
+        /// matches — base colour, maps, smoothness — because Unity preserves same-named properties
+        /// across a shader swap. Returns how many materials were repaired.
+        /// </summary>
+        public static int RepairBundleShaders(GameObject root)
+        {
+            if (root == null) return 0;
+            var replacement = Shader.Find(GameNames.Shader.HdrpLit);
+            if (replacement == null)
+            {
+                MelonLogger.Warning($"[POGContentLib] Cannot repair bundle shaders: '{GameNames.Shader.HdrpLit}' not found.");
+                return 0;
+            }
+
+            int fixedCount = 0;
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r == null) continue;
+                var mats = r.materials;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    var m = mats[i];
+                    if (m == null) continue;
+                    bool broken = m.shader == null || m.shader.name.Contains(GameNames.Shader.ErrorShader);
+                    if (!broken) continue;
+                    m.shader = replacement;
+                    fixedCount++;
+                }
+                r.materials = mats;
+            }
+            if (fixedCount > 0)
+                MelonLogger.Msg($"[POGContentLib] Repaired {fixedCount} bundle material(s) onto {GameNames.Shader.HdrpLit}. " +
+                                "Build the bundle against the game's Unity/HDRP version to avoid this.");
+            return fixedCount;
         }
 
         /// <summary>Tint the visible reskin renderers via HDRP _BaseColor (fallback _Color).</summary>

@@ -28,6 +28,10 @@ namespace POGContentLib.Core
             public const string EmissionColor = "_EmissionColor";
             /// <summary>Shader keyword that must be enabled for emission to render.</summary>
             public const string EmissionKeyword = "_EMISSION";
+            /// <summary>The game's HDRP shader, used to repair bundle materials that lost their shader.</summary>
+            public const string HdrpLit = "HDRP/Lit";
+            /// <summary>Unity's magenta fallback when a material's shader could not be resolved.</summary>
+            public const string ErrorShader = "Hidden/InternalErrorShader";
         }
 
         /// <summary>Child object names created by the framework itself (stable, not game assets).</summary>

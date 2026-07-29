@@ -69,7 +69,13 @@ Framework skeleton compiles clean; correctness of the runtime paths pending Mile
 
 ## v0.2 — Items hardened + assets
 
-- [ ] Enable the full AssetBundle visual pipeline after 0.2 (mesh/prefab, HDRP shaders in bundle).
+- [~] **AssetBundle visual pipeline — IMPLEMENTED, unproven in-game.** `ItemVisual.Bundle(path, asset)`
+      instantiates a custom prefab as the item's visual (with placement via `.At(offset, euler, scale)`)
+      and disables the shell's renderers. Engine-side effects ride along inside the prefab (particles,
+      lights, trails, animation); custom C# MonoBehaviours cannot survive IL2CPP and are dropped by
+      Unity — logic belongs in capabilities/use handlers. Materials that lost their shader are repaired
+      onto `HDRP/Lit` (same-named properties survive the swap). Modder guide: `CUSTOM_ASSETS.md`.
+      Gated on the Milestone 0.2 round-trip test.
 - [ ] Loose-file tier polish: PNG icons, OGG audio, OBJ meshes (no Unity Editor needed).
 - [ ] `HostBridge` client→host use requests via `CustomMessagingManager` named messages
       (so non-host players can trigger item effects).

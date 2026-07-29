@@ -60,7 +60,13 @@ namespace POGContentLib.Core
         // disables lobby-metadata parity detection — the game's own connect check still applies.
         private static readonly (string typeName, string[] members)[] ExpectedByName =
         {
-            (GameNames.Steam.SteamManagerTypeFullName, new[] { GameNames.Steam.SteamManager_Lobby }),
+            (GameNames.Steam.SteamManagerTypeFullName, new[]
+            {
+                GameNames.Steam.SteamManager_Lobby,
+                // Patched to capture the manager instance — a rename here silently disables parity.
+                GameNames.Steam.OnSteamLobbyEntered, GameNames.Steam.OnSteamLobbyGameCreated,
+                GameNames.Steam.OnSteamLobbyDataChanged,
+            }),
             (GameNames.Steam.LobbyTypeFullName, new[]
                 { GameNames.Steam.Lobby_SetData, GameNames.Steam.Lobby_GetData }),
         };

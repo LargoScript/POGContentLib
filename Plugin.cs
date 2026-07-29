@@ -82,8 +82,12 @@ namespace POGContentLib
                 catch (Exception ex)
                 {
                     failed++;
-                    MelonLogger.Error($"[POGContentLib] Harmony patch FAILED for {type.Name}: " +
-                                      $"{ex.InnerException?.Message ?? ex.Message}");
+                    // Walk the whole chain: Harmony wraps the real reason ("parameter X not found",
+                    // "unsupported type"…) two or three levels deep behind "IL Compile Error".
+                    var reason = new System.Text.StringBuilder();
+                    for (var e = ex; e != null; e = e.InnerException)
+                        reason.Append("\n    ").Append(e.GetType().Name).Append(": ").Append(e.Message);
+                    MelonLogger.Error($"[POGContentLib] Harmony patch FAILED for {type.Name}:{reason}");
                 }
             }
 

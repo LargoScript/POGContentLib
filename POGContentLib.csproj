@@ -62,5 +62,10 @@
       <HintPath>..\..\MelonLoader\Il2CppAssemblies\Unity.Collections.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Steam lobby metadata: the channel the multiplayer parity layer uses. -->
+    <Reference Include="Il2CppFacepunch.Steamworks.Win64">
+      <HintPath>..\..\MelonLoader\Il2CppAssemblies\Il2CppFacepunch.Steamworks.Win64.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 </Project>

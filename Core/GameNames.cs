@@ -88,8 +88,16 @@ namespace POGContentLib.Core
             /// NOT on NetworkHandler (the compatibility probe caught that wrong binding in-game).
             /// </summary>
             public const string SteamManagerTypeFullName = "Il2CppGame.Platform.SteamRuntimeManager";
-            /// <summary>STATIC property -> Nullable&lt;Lobby&gt;. No instance/singleton hop needed.</summary>
+            /// <summary>
+            /// INSTANCE property -> Nullable&lt;Lobby&gt; (runtime-verified: not static, and the class is
+            /// not a MonoBehaviour, so the instance is captured from the callbacks below instead).
+            /// </summary>
             public const string SteamManager_Lobby = "Lobby";
+
+            /// <summary>Lobby callbacks patched to capture the manager instance (joiner / host / update).</summary>
+            public const string OnSteamLobbyEntered = "OnSteamLobbyEntered";
+            public const string OnSteamLobbyGameCreated = "OnSteamLobbyGameCreated";
+            public const string OnSteamLobbyDataChanged = "OnSteamLobbyDataChanged";
             public const string Lobby_SetData = "SetData";              // (string key, string value)
             public const string Lobby_GetData = "GetData";              // (string key) -> string
 

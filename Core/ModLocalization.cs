@@ -26,13 +26,13 @@ namespace POGContentLib.Core
     [HarmonyPatch(typeof(LocalizationManager), GameNames.Methods.LocalizationManager_GetTranslation)]
     internal static class Patch_GetTranslation
     {
-        // The injected parameter name must match the GAME's parameter EXACTLY, including case:
-        // GetTranslation(string Term, ...) — capital T. A mismatch is not a compile error, it is a
-        // Harmony "IL Compile Error" at patch time that aborts the WHOLE PatchAll batch.
-        static void Postfix(string Term, ref string __result)
+        // Injected POSITIONALLY (__0 = first parameter) rather than by name. The game's signature is
+        // GetTranslation(string Term, ...) with 8 parameters; name-based injection was rejected at
+        // patch time ("IL Compile Error") even with the exact casing, so position is the robust form.
+        static void Postfix(string __0, ref string __result)
         {
-            if (string.IsNullOrEmpty(Term)) return;
-            if (ModLocalization.TryGet(Term, out var value) && !string.IsNullOrEmpty(value))
+            if (string.IsNullOrEmpty(__0)) return;
+            if (ModLocalization.TryGet(__0, out var value) && !string.IsNullOrEmpty(value))
                 __result = value;
         }
     }

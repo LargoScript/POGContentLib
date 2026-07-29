@@ -1,41 +1,44 @@
 using System;
-using System.Linq;
-using System.Reflection;
+using HarmonyLib;
+using Il2CppGame.Platform;
 using MelonLoader;
 
 namespace POGContentLib.Core
 {
     /// <summary>
-    /// Reflective bridge to the current Steam lobby's metadata, used to advertise/read the parity
-    /// manifest. Deliberately NOT compile-time bound to the Facepunch interop: the exact interop
-    /// shape (Nullable&lt;Lobby&gt; projection, struct-vs-class for Lobby) is a runtime unknown, so
-    /// every access is name-resolved and guarded — a shape change surfaces as one log line, never a
-    /// crash. The whole class is best-effort; the parity COMPARISON logic lives (and is testable) in
-    /// <see cref="ParityManifest"/>, independent of anything here.
+    /// Access to the current Steam lobby's metadata — the channel the parity layer uses to advertise
+    /// and compare content sets before a join.
     ///
-    /// RUNTIME-TODO (validate in a 2-player game):
-    ///   • that NetworkHandler.Singleton.Lobby is populated at the moment we advertise/read
-    ///     (host: after CreateLobbyAsync; client: after join, before the NGO prefab-set check);
-    ///   • that lobby metadata written by the host is visible to a joining client at that time.
+    /// Getting the lobby is not obvious: <c>SteamRuntimeManager.Lobby</c> is an INSTANCE property on a
+    /// plain (non-Unity) class with no singleton accessor, so there is nothing to look it up from
+    /// (runtime-verified: reading it statically threw "Non-static method requires a target", and it is
+    /// not a MonoBehaviour, so FindObjectOfType cannot help either). Instead we capture the instance
+    /// from the game's own lobby callbacks via Harmony and read the live property off it afterwards.
     /// </summary>
     internal static class ParitySteamBridge
     {
-        private const BindingFlags Flags =
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        private static SteamRuntimeManager _manager;
+        private static bool _warned;
 
-        private static bool _warnedUnavailable;
+        /// <summary>Remember the manager instance handed to us by a game callback.</summary>
+        internal static void CaptureManager(SteamRuntimeManager manager)
+        {
+            if (manager == null) return;
+            _manager = manager;
+        }
 
-        /// <summary>Write a key/value onto the current lobby. Returns false if there is no lobby yet.</summary>
+        /// <summary>Whether a lobby is currently available to read/write.</summary>
+        internal static bool HasLobby => _manager != null && _manager.Lobby.HasValue;
+
+        /// <summary>Write a key/value onto the current lobby. False when there is no lobby yet.</summary>
         public static bool TrySetLobbyData(string key, string value)
         {
             try
             {
-                object lobby = GetCurrentLobby();
-                if (lobby == null) return false;
-                var setData = lobby.GetType().GetMethod(GameNames.Steam.Lobby_SetData, Flags,
-                    null, new[] { typeof(string), typeof(string) }, null);
-                if (setData == null) { WarnOnce("Lobby.SetData(string,string) not found on this build."); return false; }
-                setData.Invoke(lobby, new object[] { key, value });
+                if (_manager == null) { WarnOnce("no SteamRuntimeManager captured yet (no lobby callback has fired)."); return false; }
+                var lobby = _manager.Lobby;
+                if (!lobby.HasValue) return false;
+                lobby.Value.SetData(key, value);
                 return true;
             }
             catch (Exception ex)
@@ -45,17 +48,15 @@ namespace POGContentLib.Core
             }
         }
 
-        /// <summary>Read a key from the current lobby. Returns null if no lobby; "" if the key is unset.</summary>
+        /// <summary>Read a key from the current lobby. Null when there is no lobby; "" when unset.</summary>
         public static string TryGetLobbyData(string key)
         {
             try
             {
-                object lobby = GetCurrentLobby();
-                if (lobby == null) return null;
-                var getData = lobby.GetType().GetMethod(GameNames.Steam.Lobby_GetData, Flags,
-                    null, new[] { typeof(string) }, null);
-                if (getData == null) { WarnOnce("Lobby.GetData(string) not found on this build."); return null; }
-                return getData.Invoke(lobby, new object[] { key }) as string;
+                if (_manager == null) { WarnOnce("no SteamRuntimeManager captured yet (no lobby callback has fired)."); return null; }
+                var lobby = _manager.Lobby;
+                if (!lobby.HasValue) return null;
+                return lobby.Value.GetData(key);
             }
             catch (Exception ex)
             {
@@ -64,68 +65,36 @@ namespace POGContentLib.Core
             }
         }
 
-        /// <summary>
-        /// Resolve the live <c>Lobby</c> from the STATIC <c>SteamRuntimeManager.Lobby</c>
-        /// (a Nullable&lt;Lobby&gt;), returning the unwrapped Lobby, or null when not in a lobby.
-        /// </summary>
-        private static object GetCurrentLobby()
-        {
-            Type steamType = FindType(GameNames.Steam.SteamManagerTypeFullName);
-            if (steamType == null) { WarnOnce($"Type not found: {GameNames.Steam.SteamManagerTypeFullName}"); return null; }
-
-            object lobbyNullable = GetMemberValue(steamType, null, GameNames.Steam.SteamManager_Lobby);
-            return Unwrap(lobbyNullable);
-        }
-
-        /// <summary>Read a property (or its get_ method / field) by name, static when instance is null.</summary>
-        private static object GetMemberValue(Type type, object instance, string name)
-        {
-            var prop = type.GetProperty(name, Flags);
-            if (prop != null && prop.CanRead) return prop.GetValue(instance);
-            var getter = type.GetMethod("get_" + name, Flags, null, Type.EmptyTypes, null);
-            if (getter != null) return getter.Invoke(instance, null);
-            var field = type.GetField(name, Flags);
-            if (field != null) return field.GetValue(instance);
-            return null;
-        }
-
-        /// <summary>Unwrap a Nullable&lt;Lobby&gt; (or a projected optional) to the Lobby, or pass through.</summary>
-        private static object Unwrap(object nullable)
-        {
-            if (nullable == null) return null;
-            Type t = nullable.GetType();
-            var hasValue = t.GetProperty("HasValue", Flags);
-            if (hasValue != null)
-            {
-                if (!(bool)hasValue.GetValue(nullable)) return null;
-                var valueProp = t.GetProperty("Value", Flags);
-                return valueProp != null ? valueProp.GetValue(nullable) : nullable;
-            }
-            return nullable; // already the Lobby (interop projected it as a plain struct/class)
-        }
-
-        /// <summary>Find a loaded type by full name across all assemblies (interop names are stable).</summary>
-        private static Type FindType(string fullName)
-        {
-            var direct = Type.GetType(fullName, throwOnError: false);
-            if (direct != null) return direct;
-            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                Type t = null;
-                try { t = asm.GetType(fullName, throwOnError: false); }
-                catch { /* dynamic/reflection-only assemblies can throw */ }
-                if (t != null) return t;
-            }
-            return null;
-        }
-
         private static void WarnOnce(string msg)
         {
-            if (_warnedUnavailable) return;
-            _warnedUnavailable = true;
+            if (_warned) return;
+            _warned = true;
             MelonLogger.Warning($"[POGContentLib] Parity/Steam bridge unavailable — {msg} " +
-                "Parity detection via lobby metadata is disabled this session (the game's own " +
-                "connect-time prefab check still applies). This is a RUNTIME-TODO for Milestone 0.");
+                "Parity detection via lobby metadata is off this session (the game's own connect-time " +
+                "prefab check still applies).");
         }
+    }
+
+    /// <summary>
+    /// Capture the SteamRuntimeManager instance from the game's lobby callbacks. Patching several of
+    /// them covers both roles: the host gets OnSteamLobbyGameCreated, a joiner gets OnSteamLobbyEntered,
+    /// and OnSteamLobbyDataChanged catches any later change. Postfixes only — we never alter behaviour.
+    /// </summary>
+    [HarmonyPatch(typeof(SteamRuntimeManager), GameNames.Steam.OnSteamLobbyEntered)]
+    internal static class Patch_SteamLobbyEntered
+    {
+        static void Postfix(SteamRuntimeManager __instance) => ParitySteamBridge.CaptureManager(__instance);
+    }
+
+    [HarmonyPatch(typeof(SteamRuntimeManager), GameNames.Steam.OnSteamLobbyGameCreated)]
+    internal static class Patch_SteamLobbyGameCreated
+    {
+        static void Postfix(SteamRuntimeManager __instance) => ParitySteamBridge.CaptureManager(__instance);
+    }
+
+    [HarmonyPatch(typeof(SteamRuntimeManager), GameNames.Steam.OnSteamLobbyDataChanged)]
+    internal static class Patch_SteamLobbyDataChanged
+    {
+        static void Postfix(SteamRuntimeManager __instance) => ParitySteamBridge.CaptureManager(__instance);
     }
 }

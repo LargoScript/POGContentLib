@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MelonLoader;
 using Unity.Netcode;
 using UnityEngine;
@@ -37,22 +38,40 @@ namespace POGContentLib.Core
                 return;
             }
 
-            int ok = 0, fail = 0;
-            foreach (var prefab in _registry.AllPrefabs)
+            // Snapshot first: a hash collision re-keys the registry mid-loop, and mutating the
+            // dictionary while enumerating its values throws "Collection was modified".
+            var prefabs = new List<NetworkObject>(_registry.AllPrefabs);
+
+            int ok = 0, fail = 0, already = 0;
+            foreach (var prefab in prefabs)
             {
                 if (prefab == null || prefab.gameObject == null) { fail++; continue; }
-                if (TryRegisterOne(nm, prefab)) ok++; else fail++;
+                switch (TryRegisterOne(nm, prefab))
+                {
+                    case RegisterResult.Registered: ok++; break;
+                    case RegisterResult.AlreadyRegistered: already++; break;
+                    default: fail++; break;
+                }
             }
 
             _registered = true;
-            MelonLogger.Msg($"[POGContentLib] Network prefabs registered: {ok} ok, {fail} failed.");
+            MelonLogger.Msg($"[POGContentLib] Network prefabs registered: {ok} ok, {fail} failed" +
+                            (already > 0 ? $", {already} already registered from an earlier session." : "."));
         }
 
-        private bool TryRegisterOne(NetworkManager nm, NetworkObject prefab)
+        private enum RegisterResult { Registered, AlreadyRegistered, Failed }
+
+        private RegisterResult TryRegisterOne(NetworkManager nm, NetworkObject prefab)
         {
             uint hash = prefab.GlobalObjectIdHash;
 
-            // 1) Resolve a hash collision BEFORE registering (a duplicate => LogWarning+ignore in NGO).
+            // 0) Already ours from a previous session? NetworkManager.Singleton outlives a session, so
+            //    its prefab table still holds our entries after Shutdown. Without this check we would
+            //    mistake our OWN registration for a collision and re-salt the hash on every re-host —
+            //    which silently changes the item's identity, breaking saves and multiplayer parity.
+            if (IsRegisteredToUs(nm, hash, prefab)) return RegisterResult.AlreadyRegistered;
+
+            // 1) Resolve a genuine collision BEFORE registering (a duplicate => LogWarning+ignore in NGO).
             if (IsHashTaken(nm, hash))
             {
                 var def = _registry.GetDefinitionByHash(hash);
@@ -65,7 +84,7 @@ namespace POGContentLib.Core
                 if (IsHashTaken(nm, resolved))
                 {
                     MelonLogger.Error($"[POGContentLib] Could not find free hash for {prefab.name} (base {hash:X8}).");
-                    return false;
+                    return RegisterResult.Failed;
                 }
                 if (resolved != hash)
                 {
@@ -81,16 +100,35 @@ namespace POGContentLib.Core
             catch (Exception ex)
             {
                 MelonLogger.Error($"[POGContentLib] AddNetworkPrefab threw for {prefab.name}: {ex.Message}");
-                return false;
+                return RegisterResult.Failed;
             }
 
             // 3) Post-verify (do not trust void/log): is the hash actually in the table.
             if (!IsHashTaken(nm, hash))
             {
                 MelonLogger.Error($"[POGContentLib] Post-verify FAILED: {prefab.name} ({hash:X8}) not registered.");
+                return RegisterResult.Failed;
+            }
+            return RegisterResult.Registered;
+        }
+
+        /// <summary>
+        /// Whether this exact prefab is already registered under this hash — i.e. it is OUR earlier
+        /// registration, not somebody else's object colliding with us.
+        /// </summary>
+        private static bool IsRegisteredToUs(NetworkManager nm, uint hash, NetworkObject prefab)
+        {
+            try
+            {
+                var links = nm.NetworkConfig.Prefabs?.NetworkPrefabOverrideLinks;
+                if (links == null || !links.ContainsKey(hash)) return false;
+                var entry = links[hash];
+                return entry != null && entry.Prefab != null && entry.Prefab == prefab.gameObject;
+            }
+            catch
+            {
                 return false;
             }
-            return true;
         }
 
         /// <summary>Whether a GlobalObjectIdHash is already present in NetworkPrefabOverrideLinks.</summary>

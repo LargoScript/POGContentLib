@@ -83,10 +83,13 @@ namespace POGContentLib.Core
         {
             /// <summary>Facepunch lobby type in interop (exposes SetData/GetData).</summary>
             public const string LobbyTypeFullName = "Il2CppSteamworks.Data.Lobby";
-            /// <summary>Game networking singleton that owns the current lobby.</summary>
-            public const string NetworkHandlerTypeFullName = "Il2CppGame.Networking.NetworkHandler";
-            public const string NetworkHandler_Singleton = "Singleton"; // static property -> NetworkHandler
-            public const string NetworkHandler_Lobby = "Lobby";         // instance property -> Nullable<Lobby>
+            /// <summary>
+            /// Static game class owning the current Steam lobby. Runtime-verified: the lobby is here,
+            /// NOT on NetworkHandler (the compatibility probe caught that wrong binding in-game).
+            /// </summary>
+            public const string SteamManagerTypeFullName = "Il2CppGame.Platform.SteamRuntimeManager";
+            /// <summary>STATIC property -> Nullable&lt;Lobby&gt;. No instance/singleton hop needed.</summary>
+            public const string SteamManager_Lobby = "Lobby";
             public const string Lobby_SetData = "SetData";              // (string key, string value)
             public const string Lobby_GetData = "GetData";              // (string key) -> string
 

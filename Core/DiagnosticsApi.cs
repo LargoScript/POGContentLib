@@ -23,6 +23,8 @@ namespace POGContentLib.Core
         private readonly HashSet<string> _pending = new HashSet<string>();
         private readonly HashSet<string> _done = new HashSet<string>();
         private readonly HashSet<string> _vfxFilters = new HashSet<string>();
+        private const int MaxVfxAttempts = 3;
+        private int _vfxAttempts;
         private bool _listLoaded;
 
         /// <summary>
@@ -90,14 +92,18 @@ namespace POGContentLib.Core
         {
             LoadProbeListOnce();
 
-            // "vfx:<filter>" lines list matching effects once the scene has loaded them.
-            if (_vfxFilters.Count > 0)
+            // "vfx:<filter>" lines list matching effects once the scene has loaded them. Assets load
+            // progressively, so retry a few times — but give up rather than re-logging every scene.
+            if (_vfxFilters.Count > 0 && ++_vfxAttempts <= MaxVfxAttempts)
             {
                 foreach (var filter in new List<string>(_vfxFilters))
                 {
                     var hits = ListVfx(filter);
                     if (hits.Count > 0) _vfxFilters.Remove(filter);
                 }
+                if (_vfxAttempts == MaxVfxAttempts && _vfxFilters.Count > 0)
+                    MelonLogger.Msg($"[POGContentLib.Probe] No VFX matched: {string.Join(", ", _vfxFilters)} " +
+                                    "(try a shorter filter, or an empty 'vfx:' to list everything).");
             }
 
             if (_pending.Count == 0) return;

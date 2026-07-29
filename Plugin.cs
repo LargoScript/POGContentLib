@@ -55,17 +55,40 @@ namespace POGContentLib
             PluginRegistry.Boot();
 
             // 6) Harmony: NGO lifecycle hooks (Start*/Shutdown) + the reward-chest save guard.
-            //    Use the melon's built-in HarmonyInstance.
-            try
-            {
-                HarmonyInstance.PatchAll(typeof(Plugin).Assembly);
-            }
-            catch (Exception ex)
-            {
-                MelonLogger.Warning($"[POGContentLib] Harmony PatchAll failed: {ex.Message}");
-            }
+            //    Patch each class SEPARATELY: PatchAll aborts the whole batch on the first failure,
+            //    which once cost us every patch in the assembly because of one bad parameter name.
+            //    Isolating them means a single incompatible patch degrades that one feature only.
+            PatchEachClassIndependently();
 
             MelonLogger.Msg("[POGContentLib] Boot done. Waiting for scene + session.");
+        }
+
+        /// <summary>
+        /// Apply every [HarmonyPatch] class in this assembly one at a time, so a patch that the
+        /// current game build rejects cannot take the others down with it. Logs exactly which class
+        /// failed and why — the actionable form of "the game updated".
+        /// </summary>
+        private void PatchEachClassIndependently()
+        {
+            int ok = 0, failed = 0;
+            foreach (var type in typeof(Plugin).Assembly.GetTypes())
+            {
+                if (type.GetCustomAttributes(typeof(HarmonyPatch), true).Length == 0) continue;
+                try
+                {
+                    new PatchClassProcessor(HarmonyInstance, type).Patch();
+                    ok++;
+                }
+                catch (Exception ex)
+                {
+                    failed++;
+                    MelonLogger.Error($"[POGContentLib] Harmony patch FAILED for {type.Name}: " +
+                                      $"{ex.InnerException?.Message ?? ex.Message}");
+                }
+            }
+
+            if (failed == 0) MelonLogger.Msg($"[POGContentLib] Harmony: {ok} patch class(es) applied.");
+            else MelonLogger.Warning($"[POGContentLib] Harmony: {ok} applied, {failed} FAILED (those features are off; the rest work).");
         }
 
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)

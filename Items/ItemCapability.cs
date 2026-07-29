@@ -286,6 +286,12 @@ namespace POGContentLib.Items
         public bool FollowVisualMesh = false;
         /// <summary>Recolour the particle material (null = leave the source colours).</summary>
         public Color? Tint = null;
+        /// <summary>
+        /// Start the particles immediately. Needed for most vanilla VFX: they ship stopped and are
+        /// played by their owner's logic (e.g. the SpeakingStone's aura only plays while speaking),
+        /// so a bare clone would sit there invisible.
+        /// </summary>
+        public bool PlayOnAttach = true;
 
         public override string Name => $"Particles({EffectId})";
 
@@ -332,6 +338,16 @@ namespace POGContentLib.Items
             instance.SetActive(true);
 
             if (Tint.HasValue) TintRenderers(instance, Tint.Value);
+
+            if (PlayOnAttach)
+            {
+                foreach (var ps in instance.GetComponentsInChildren<ParticleSystem>(true))
+                {
+                    if (ps == null) continue;
+                    ps.gameObject.SetActive(true);
+                    try { ps.Play(true); } catch { /* some systems refuse until spawned */ }
+                }
+            }
         }
 
         private GameObject ResolveSource()
@@ -343,9 +359,13 @@ namespace POGContentLib.Items
             }
             if (string.IsNullOrEmpty(SourcePrefabName) || string.IsNullOrEmpty(SourceChildName)) return null;
 
-            var donor = GameAssets.FindItemPrefab(SourcePrefabName);
-            if (donor == null) return null;
-            foreach (var t in donor.gameObject.GetComponentsInChildren<Transform>(true))
+            // The donor may be an item prefab OR a standalone VFX prefab (e.g. an ItemBreak effect),
+            // so fall back to a by-name GameObject lookup rather than only searching InventoryItems.
+            var itemDonor = GameAssets.FindItemPrefab(SourcePrefabName);
+            GameObject donorRoot = itemDonor != null ? itemDonor.gameObject : GameAssets.FindGameObject(SourcePrefabName);
+            if (donorRoot == null) return null;
+
+            foreach (var t in donorRoot.GetComponentsInChildren<Transform>(true))
                 if (t != null && t.name.Contains(SourceChildName)) return t.gameObject;
             return null;
         }

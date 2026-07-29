@@ -65,18 +65,15 @@ namespace POGContentLib.Core
         }
 
         /// <summary>
-        /// Resolve the live <c>Lobby</c> via <c>NetworkHandler.Singleton.Lobby</c> (a Nullable&lt;Lobby&gt;),
-        /// returning the unwrapped Lobby object, or null if there is no current lobby.
+        /// Resolve the live <c>Lobby</c> from the STATIC <c>SteamRuntimeManager.Lobby</c>
+        /// (a Nullable&lt;Lobby&gt;), returning the unwrapped Lobby, or null when not in a lobby.
         /// </summary>
         private static object GetCurrentLobby()
         {
-            Type nhType = FindType(GameNames.Steam.NetworkHandlerTypeFullName);
-            if (nhType == null) { WarnOnce($"Type not found: {GameNames.Steam.NetworkHandlerTypeFullName}"); return null; }
+            Type steamType = FindType(GameNames.Steam.SteamManagerTypeFullName);
+            if (steamType == null) { WarnOnce($"Type not found: {GameNames.Steam.SteamManagerTypeFullName}"); return null; }
 
-            object singleton = GetMemberValue(nhType, null, GameNames.Steam.NetworkHandler_Singleton);
-            if (singleton == null) return null; // no active NetworkHandler (not in a session)
-
-            object lobbyNullable = GetMemberValue(nhType, singleton, GameNames.Steam.NetworkHandler_Lobby);
+            object lobbyNullable = GetMemberValue(steamType, null, GameNames.Steam.SteamManager_Lobby);
             return Unwrap(lobbyNullable);
         }
 

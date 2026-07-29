@@ -73,6 +73,10 @@ namespace POGContentLib.Items
             {
                 foreach (var def in _defs) TryBuild(def);
 
+                // Link "leaves behind" references once every template exists — the target may well be
+                // registered after the item that points at it.
+                LinkConsumeSpawns();
+
                 // Retry any queued visual probes (prefabs load progressively across scenes).
                 Content.Diagnostics.RetryPending();
 
@@ -194,6 +198,50 @@ namespace POGContentLib.Items
                     MelonLogger.Warning($"[POGContentLib.Items] Capability '{cap.Name}' failed on {def.ContentId}: {ex.Message}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Wire every definition's <c>SpawnOnConsume</c> to the target template's NetworkObject, using
+        /// the game's own <c>m_spawnOnDestroy</c> so the replacement is spawned and replicated by the
+        /// game itself. Runs after the build pass because the target may be registered later.
+        /// </summary>
+        private void LinkConsumeSpawns()
+        {
+            foreach (var def in _defs)
+            {
+                if (string.IsNullOrEmpty(def.SpawnOnConsume)) continue;
+
+                var source = ResolveTemplate(def.ModId, def.ContentId);
+                if (source == null) continue;                       // not built yet — retry next scene
+                if (source.m_spawnOnDestroy != null) continue;      // already linked
+
+                // "contentId" means "in my own mod"; "modId:contentId" points anywhere.
+                string targetMod = def.ModId, targetContent = def.SpawnOnConsume;
+                int sep = def.SpawnOnConsume.IndexOf(':');
+                if (sep > 0)
+                {
+                    targetMod = def.SpawnOnConsume.Substring(0, sep);
+                    targetContent = def.SpawnOnConsume.Substring(sep + 1);
+                }
+
+                uint targetHash = ContentRegistry.ComputeHash(targetMod, targetContent);
+                var targetObj = CoreServices.Content.GetPrefabByHash(targetHash);
+                if (targetObj == null) continue;                    // target not built yet
+
+                source.m_spawnOnDestroy = targetObj;
+                // ShellFactory zeroes these to kill inherited spawn chains; a deliberate link needs
+                // them back, or the game has nothing to spawn.
+                source.m_spawnAmount = 1;
+                source.m_spawnChance = 1f;
+                MelonLogger.Msg($"[POGContentLib.Items] {def.ContentId} leaves behind {targetMod}:{targetContent} when used up.");
+            }
+        }
+
+        /// <summary>The built InventoryItem template for a content id, or null if not built yet.</summary>
+        private static InventoryItem ResolveTemplate(string modId, string contentId)
+        {
+            var netObj = CoreServices.Content.GetPrefabByHash(ContentRegistry.ComputeHash(modId, contentId));
+            return netObj != null ? netObj.GetComponent<InventoryItem>() : null;
         }
 
         /// <summary>Whether the pack already declared a capability that makes the item usable.</summary>
@@ -338,12 +386,23 @@ namespace POGContentLib.Items
             if (handle != null)
             {
                 handle.UsesRemaining--;
+                MelonLogger.Msg($"[POGContentLib.Items] {def.ContentId}: used, {handle.UsesRemaining} use(s) left.");
+
                 if (handle.UsesRemaining <= 0 && def.Consumable)
                 {
                     handle.IsConsumed = true;
                     try { item.ConsumeItem_Owner(); }
                     catch (Exception ex)
                     { MelonLogger.Warning($"[POGContentLib.Items] Consume failed: {ex.Message}"); }
+                }
+                else
+                {
+                    // Multi-use items only fired once: the item stays flagged as "doing its primary
+                    // action" until something ends it, and our added ReadyItem has no effect logic of
+                    // its own to do so — so the next click was swallowed. Close the action ourselves.
+                    try { item.EndPrimaryAction(); }
+                    catch (Exception ex)
+                    { MelonLogger.Warning($"[POGContentLib.Items] EndPrimaryAction failed: {ex.Message}"); }
                 }
             }
         }

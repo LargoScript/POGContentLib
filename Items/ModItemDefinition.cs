@@ -148,6 +148,16 @@ namespace POGContentLib.Items
         /// <summary>Id of a registered use handler (RegisterUseHandler).</summary>
         public string UseHandlerId { get; set; }
 
+        /// <summary>
+        /// Another registered content item to leave behind when this one is used up — a spent husk, an
+        /// empty bottle, a broken tool. Accepts "contentId" (same mod) or "modId:contentId".
+        ///
+        /// Uses the game's OWN mechanism (<c>InventoryItem.m_spawnOnDestroy</c>), so the replacement is
+        /// spawned and replicated by the game rather than by us: it appears for every player, survives
+        /// saving, and needs no RPC of our own.
+        /// </summary>
+        public string SpawnOnConsume { get; set; }
+
         // — Capabilities (EXPERIMENTAL, v0.2) — declarative sibling components (eat/weapon/throw).
         //   See ItemCapability. Attached at template build; validate on-item in Milestone 0. —
         public System.Collections.Generic.List<ItemCapability> Capabilities { get; } =
